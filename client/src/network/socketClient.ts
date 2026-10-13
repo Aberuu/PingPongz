@@ -4,7 +4,10 @@ import type {
   GameEventData,
   RoomStateMsg,
   ClientInputMsg,
-  PlayerSlot
+  PlayerSlot,
+  GameMode,
+  BotDifficulty,
+  PracticeZone
 } from '@shared/types';
 import { soundFx } from '../audio/synth';
 
@@ -82,7 +85,13 @@ class SocketClient {
         soundFx.playTableBounce();
         break;
       case 'PADDLE_HIT':
-        soundFx.playPaddleHit(event.payload?.isSmash);
+        if (event.payload?.isSweetSpot) {
+          soundFx.playSweetSpot();
+        } else if (event.payload?.isSlice) {
+          soundFx.playSliceChop();
+        } else {
+          soundFx.playPaddleHit(event.payload?.isSmash);
+        }
         break;
       case 'NET_HIT':
         soundFx.playNetHit();
@@ -113,6 +122,14 @@ class SocketClient {
     this.socket?.emit('c2s_ready', { ready });
   }
 
+  public setGameMode(mode: GameMode, botDifficulty?: BotDifficulty, practiceZone?: PracticeZone) {
+    this.socket?.emit('c2s_set_mode', { mode, botDifficulty, practiceZone });
+  }
+
+  public setPracticeZone(zone: PracticeZone) {
+    this.socket?.emit('c2s_set_practice_zone', { zone });
+  }
+
   public sendInput(input: ClientInputMsg) {
     // Send volatile input
     this.socket?.emit('c2s_input', input);
@@ -127,7 +144,11 @@ class SocketClient {
   }
 
   public sendRematch() {
-    this.socket?.emit('c2s_rematch');
+    this.socket?.emit('c2s_rematch', { slot: this.assignedSlot });
+  }
+
+  public sendQuitToLobby() {
+    this.socket?.emit('c2s_quit_to_lobby');
   }
 
   public onSnapshot(cb: SnapshotListener) {

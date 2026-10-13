@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { RoomStateMsg, PlayerSlot } from '@shared/types';
+import type { RoomStateMsg, PlayerSlot, GameMode, BotDifficulty, PracticeZone } from '@shared/types';
 import { network } from '../network/socketClient';
 
 interface LobbyProps {
@@ -27,7 +27,9 @@ export const Lobby: React.FC<LobbyProps> = ({
     } else {
       setPlayerName(roomState.p2Name || 'Pemain 2');
     }
-  }, [localSlot]);
+    const readyState = localSlot === 'p1' ? !!roomState.p1Ready : !!roomState.p2Ready;
+    setIsReady(readyState);
+  }, [localSlot, roomState.p1Ready, roomState.p2Ready, roomState.p1Name, roomState.p2Name]);
 
   const isHost = localSlot === 'p1';
   const shareAddress = roomState.hostAddress || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
@@ -116,49 +118,106 @@ export const Lobby: React.FC<LobbyProps> = ({
         {/* HOST PANEL */}
         {activeTab === 'host' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Share Address Card */}
-            <div
-              style={{
-                backgroundColor: '#10131a',
-                border: '2px solid #2e3644',
-                padding: '14px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-              }}
-            >
-              <div style={{ fontSize: '10px', color: '#8c96a5' }}>
-                ALAMAT LAN UNTUK LAWAN:
+            {/* Mode Selection */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '10px', color: '#8c96a5' }}>PILIH MODE PERMAINAN:</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {(['match', 'bot', 'practice'] as GameMode[]).map((m) => (
+                  <button
+                    key={m}
+                    className={`pixel-btn ${(roomState.gameMode ?? 'match') === m ? 'btn-primary' : ''}`}
+                    onClick={() => network.setGameMode(m, roomState.botDifficulty, roomState.practiceZone)}
+                    style={{ flex: 1, fontSize: '10px', padding: '8px 4px' }}
+                  >
+                    {m === 'match' ? 'LAN 1v1' : m === 'bot' ? 'Lawan Bot' : 'Mode Latihan'}
+                  </button>
+                ))}
               </div>
+            </div>
+
+            {/* Bot Difficulty Options */}
+            {(roomState.gameMode === 'bot') && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '10px', color: '#8c96a5' }}>TINGKAT KESULITAN BOT:</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {(['easy', 'medium', 'hard'] as BotDifficulty[]).map((d) => (
+                    <button
+                      key={d}
+                      className={`pixel-btn ${(roomState.botDifficulty ?? 'medium') === d ? 'btn-primary' : ''}`}
+                      onClick={() => network.setGameMode('bot', d, roomState.practiceZone)}
+                      style={{ flex: 1, fontSize: '10px', padding: '6px 4px' }}
+                    >
+                      {d === 'easy' ? 'Mudah' : d === 'medium' ? 'Sedang' : 'Sulit'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Practice Target Zone Options */}
+            {(roomState.gameMode === 'practice') && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '10px', color: '#8c96a5' }}>ZONA UMPAN BOLA LATIHAN:</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {(['center', 'left', 'right', 'random'] as PracticeZone[]).map((z) => (
+                    <button
+                      key={z}
+                      className={`pixel-btn ${(roomState.practiceZone ?? 'random') === z ? 'btn-primary' : ''}`}
+                      onClick={() => network.setPracticeZone(z)}
+                      style={{ flex: 1, fontSize: '10px', padding: '6px 4px' }}
+                    >
+                      {z === 'center' ? 'Tengah' : z === 'left' ? 'Kiri' : z === 'right' ? 'Kanan' : 'Acak'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Share Address Card (Only needed in LAN mode) */}
+            {(roomState.gameMode ?? 'match') === 'match' && (
               <div
                 style={{
+                  backgroundColor: '#10131a',
+                  border: '2px solid #2e3644',
+                  padding: '14px',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
+                  flexDirection: 'column',
                   gap: '8px'
                 }}
               >
+                <div style={{ fontSize: '10px', color: '#8c96a5' }}>
+                  ALAMAT LAN UNTUK LAWAN:
+                </div>
                 <div
                   style={{
-                    fontSize: '13px',
-                    color: '#ffb300',
-                    wordBreak: 'break-all'
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px'
                   }}
                 >
-                  {shareAddress}
+                  <div
+                    style={{
+                      fontSize: '13px',
+                      color: '#ffb300',
+                      wordBreak: 'break-all'
+                    }}
+                  >
+                    {shareAddress}
+                  </div>
+                  <button
+                    className="pixel-btn"
+                    onClick={handleCopyAddress}
+                    style={{ fontSize: '10px', padding: '8px 12px', whiteSpace: 'nowrap' }}
+                  >
+                    {copyFeedback ? 'TERSALIN!' : 'SALIN'}
+                  </button>
                 </div>
-                <button
-                  className="pixel-btn"
-                  onClick={handleCopyAddress}
-                  style={{ fontSize: '10px', padding: '8px 12px', whiteSpace: 'nowrap' }}
-                >
-                  {copyFeedback ? 'TERSALIN!' : 'SALIN'}
-                </button>
+                <div style={{ fontSize: '8px', color: '#687385' }}>
+                  Bagikan alamat ini ke PC lawan di Wi-Fi / LAN yang sama.
+                </div>
               </div>
-              <div style={{ fontSize: '8px', color: '#687385' }}>
-                Bagikan alamat ini ke PC lawan di Wi-Fi / LAN yang sama.
-              </div>
-            </div>
+            )}
 
             {/* Player Name */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -192,10 +251,20 @@ export const Lobby: React.FC<LobbyProps> = ({
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#1976d2' }}>
-                  P2 (TAMU): {roomState.p2Connected ? roomState.p2Name : 'Belum bergabung'}
+                  {roomState.gameMode === 'bot'
+                    ? `P2 (BOT): ${roomState.p2Name}`
+                    : roomState.gameMode === 'practice'
+                    ? 'P2 (LATIHAN): Ball Machine'
+                    : `P2 (TAMU): ${roomState.p2Connected ? roomState.p2Name : 'Belum bergabung'}`}
                 </span>
-                <span style={{ color: roomState.p2Ready ? '#4caf50' : (roomState.p2Connected ? '#8c96a5' : '#e53935') }}>
-                  {roomState.p2Connected ? (roomState.p2Ready ? '[SIAP]' : '[MENUNGGU]') : '[TERPUTUS]'}
+                <span style={{ color: '#4caf50' }}>
+                  {roomState.gameMode === 'bot' || roomState.gameMode === 'practice'
+                    ? '[SIAP OTOMATIS]'
+                    : roomState.p2Ready
+                    ? '[SIAP]'
+                    : roomState.p2Connected
+                    ? '[MENUNGGU]'
+                    : '[TERPUTUS]'}
                 </span>
               </div>
             </div>

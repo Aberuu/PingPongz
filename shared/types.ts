@@ -10,8 +10,21 @@ export type PlayerSlot = 'p1' | 'p2';
 
 export type AssistPreset = 'casual' | 'normal' | 'pro';
 export type CameraMode = 'static' | 'subtle' | 'dynamic';
+export type CameraPreset = 'ots' | 'high' | 'first-person';
 export type ScreenJuice = 'off' | 'subtle' | 'full';
 export type Handedness = 'right' | 'left';
+export type GameMode = 'match' | 'practice' | 'bot';
+export type PracticeZone = 'center' | 'left' | 'right' | 'random';
+export type BotDifficulty = 'easy' | 'medium' | 'hard';
+
+export interface PracticeStats {
+  totalShots: number;
+  returnedShots: number;
+  ballsServed: number;
+  ballsReturned: number;
+  returnRate: number;
+  zoneReturns: Record<PracticeZone, { total: number; returned: number }>;
+}
 
 export interface PaddleState {
   pos: Vec3;
@@ -20,6 +33,8 @@ export interface PaddleState {
   yaw: number;   // Radian rotation around Y
   roll: number;  // Radian rotation around Z
   isSmashing: boolean;
+  isSlice?: boolean;
+  footworkX?: number;
   assistPreset?: AssistPreset;
 }
 
@@ -49,6 +64,13 @@ export interface MatchStats {
   p1Smashes: number;
   p2Smashes: number;
   totalPoints: number;
+  maxBallSpeed: number;
+  returnHeatmap: number[][]; // 5 rows x 3 columns on opponent table
+  rallyLengths: number[];
+  smashesP1: number;
+  smashesP2: number;
+  acesP1: number;
+  acesP2: number;
 }
 
 export interface SnapshotData {
@@ -64,6 +86,9 @@ export interface SnapshotData {
   disconnectCountdown: number;
   pausedBy: PlayerSlot | null;
   winner: PlayerSlot | null;
+  matchStats?: MatchStats;
+  p1Rematch?: boolean;
+  p2Rematch?: boolean;
 }
 
 export type GameEventType =
@@ -82,6 +107,8 @@ export interface GameEventData {
     winner?: PlayerSlot;
     pos?: Vec3;
     isSmash?: boolean;
+    isSlice?: boolean;
+    isSweetSpot?: boolean;
     reason?: string;
     score?: ScoreState;
   };
@@ -97,6 +124,8 @@ export interface ClientInputMsg {
   yaw: number;
   roll: number;
   isSmash: boolean;
+  isSlice?: boolean;
+  footworkX?: number;
   assistPreset?: AssistPreset;
 }
 
@@ -108,4 +137,9 @@ export interface RoomStateMsg {
   p1Name: string;
   p2Name: string;
   hostAddress: string;
+  gameMode?: GameMode;
+  botDifficulty?: BotDifficulty;
+  practiceZone?: PracticeZone;
+  p1Rematch?: boolean;
+  p2Rematch?: boolean;
 }

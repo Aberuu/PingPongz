@@ -31,14 +31,83 @@ export const PADDLE_PHYSICS = {
   radius: 0.09,              // 9 cm blade radius (visual)
   hitToleranceRadius: 0.18,  // Generous arcade hit tolerance for intuitive intercept
   thickness: 0.015,
-  minX: -1.05,
-  maxX: 1.05,
+  minX: -1.25,               // Extended lateral reach for wide shots (table halfWidth 0.7625m + 0.49m)
+  maxX: 1.25,
   minY: 0.72,
   maxY: 1.45,
   p1BaseZ: 1.62,       // Host / Player 1 stands at +Z facing -Z
   p2BaseZ: -1.62,      // Guest / Player 2 stands at -Z facing +Z
   swingDepthMax: 0.22, // Forward swing extension along Z
-  smashCooldown: 0.60  // Seconds
+  smashCooldown: 0.60, // Seconds
+  footworkMaxX: 0.60,  // Max baseline footwork displacement (+/- 0.60m)
+  footworkSpeed: 1.5   // Footwork move speed (m/s)
+} as const;
+
+export const CAMERA_PRESETS = {
+  ots: {
+    baseY: 1.34,
+    baseZ: 2.62,
+    lookY: 0.76,
+    lookZ: 0.12,
+    shoulderOffset: 0.35, // Side offset per PRD formula to guarantee clear sightline
+    shiftRatio: 0.88      // Follow character body 88% horizontally
+  },
+  high: {
+    baseY: 1.75,
+    baseZ: 2.75,
+    lookY: 0.76,
+    lookZ: 0.05,
+    shoulderOffset: 0.20,
+    shiftRatio: 0.60
+  },
+  'first-person': {
+    baseY: 1.18,
+    baseZ: 2.30,
+    lookY: 0.76,
+    lookZ: 0.12,
+    shoulderOffset: 0.0,
+    shiftRatio: 0.0
+  }
+} as const;
+
+export const REACH_SYSTEM = {
+  lateralPaddingStart: 0.45,
+  lateralPaddingFactor: 0.10, // Additional hitbox radius per meter past lateralPaddingStart
+  governorReactionTime: 0.25, // Assumed human visual-motor reaction time (s)
+  governorReachSpeed: 3.4,    // Combined footwork and paddle reach speed (m/s)
+  edgeDragReduction: 0.10     // 10% aerodynamic speed drop for diagonal edge shots
+} as const;
+
+export const PRACTICE_SETTINGS = {
+  feedZ: -1.45,               // Spawns from opponent baseline
+  feedY: 0.95,
+  intervalSeconds: 2.5,
+  zones: {
+    center: { x: 0.0, z: 0.95 },
+    left: { x: -0.58, z: 1.10 },
+    right: { x: 0.58, z: 1.10 }
+  }
+} as const;
+
+export const BOT_SETTINGS = {
+  easy: {
+    reactionTime: 0.45,
+    errorJitter: 0.09,
+    smashChance: 0.10,
+    sliceChance: 0.05
+  },
+  medium: {
+    reactionTime: 0.28,
+    errorJitter: 0.04,
+    smashChance: 0.35,
+    sliceChance: 0.15
+  },
+  hard: {
+    reactionTime: 0.18,
+    errorJitter: 0.015,
+    smashChance: 0.65,
+    sliceChance: 0.25
+  }
 } as const;
 
 export const ASSIST_PRESETS = {
@@ -46,6 +115,7 @@ export const ASSIST_PRESETS = {
     maxSpeedScale: 0.70,
     hitToleranceRadius: 0.22, // 1.6x visual blade radius
     directionAssist: 0.40,    // 40% nudge towards center of opponent table
+    governorStrength: 1.0,    // 100% reach governor enforcement
     showRing: true,
     showBounce: true
   },
@@ -53,6 +123,7 @@ export const ASSIST_PRESETS = {
     maxSpeedScale: 0.85,
     hitToleranceRadius: 0.18, // 1.3x visual blade radius (default)
     directionAssist: 0.20,    // 20% nudge towards center
+    governorStrength: 0.5,    // Partial governor enforcement
     showRing: true,
     showBounce: true
   },
@@ -60,6 +131,7 @@ export const ASSIST_PRESETS = {
     maxSpeedScale: 1.00,
     hitToleranceRadius: 0.14, // 1.0x visual blade radius
     directionAssist: 0.00,    // 0% assist (pure raw physics)
+    governorStrength: 0.0,    // Off
     showRing: false,
     showBounce: false
   }

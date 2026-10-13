@@ -36,13 +36,7 @@ const defaultPaddle: PaddleState = {
 export const App: React.FC = () => {
   // Settings with local persistence
   const [settings, setSettings] = useState<UserSettings>(() => {
-    try {
-      const saved = localStorage.getItem('voxelpong_settings');
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // Use defaults
-    }
-    return {
+    const defaults: UserSettings = {
       sensitivity: 1.0,
       fov: 75,
       volume: 0.7,
@@ -50,11 +44,22 @@ export const App: React.FC = () => {
       resolution: 'medium' as ResolutionPreset,
       showCrosshair: true,
       showBallIndicator: true,
+      showRallyTrajectory: true,
       assistPreset: 'normal',
       cameraMode: 'subtle',
+      cameraPreset: 'ots',
+      shoulderOffset: 0.35,
+      showDebugObstruction: false,
       handedness: 'right',
       screenJuice: 'subtle'
     };
+    try {
+      const saved = localStorage.getItem('voxelpong_settings');
+      if (saved) return { ...defaults, ...JSON.parse(saved) };
+    } catch {
+      // Use defaults
+    }
+    return defaults;
   });
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -127,7 +132,9 @@ export const App: React.FC = () => {
           prev.disconnectCountdown !== snap.disconnectCountdown ||
           prev.serverSlot !== snap.serverSlot ||
           prev.pausedBy !== snap.pausedBy ||
-          prev.winner !== snap.winner
+          prev.winner !== snap.winner ||
+          prev.p1Rematch !== snap.p1Rematch ||
+          prev.p2Rematch !== snap.p2Rematch
         ) {
           return snap;
         }
@@ -188,7 +195,12 @@ export const App: React.FC = () => {
         fov={settings.fov}
         showCrosshair={settings.showCrosshair}
         showBallIndicator={settings.showBallIndicator}
+        showRallyTrajectory={settings.showRallyTrajectory ?? true}
         cameraMode={settings.cameraMode}
+        cameraPreset={settings.cameraPreset}
+        customShoulderOffset={settings.shoulderOffset}
+        showDebugObstruction={settings.showDebugObstruction}
+        gameMode={roomState.gameMode}
         screenJuice={settings.screenJuice}
         handedness={settings.handedness}
         onCanvasClick={handleCanvasClick}
@@ -212,8 +224,12 @@ export const App: React.FC = () => {
           p1Name={roomState.p1Name}
           p2Name={roomState.p2Name}
           isPointerLocked={isLocked}
+          gameMode={roomState.gameMode}
+          practiceZone={roomState.practiceZone}
+          onSelectPracticeZone={(zone) => network.setPracticeZone(zone)}
           onLockClick={handleCanvasClick}
           onSettingsClick={() => setIsSettingsOpen(true)}
+          onQuitToLobby={() => network.sendQuitToLobby()}
         />
       )}
 
@@ -234,10 +250,7 @@ export const App: React.FC = () => {
           p2Name={roomState.p2Name}
           onResume={() => network.sendPauseToggle()}
           onOpenSettings={() => setIsSettingsOpen(true)}
-          onQuitToLobby={() => {
-            network.sendPauseToggle();
-            network.setReady(false);
-          }}
+          onQuitToLobby={() => network.sendQuitToLobby()}
         />
       )}
 
@@ -249,10 +262,12 @@ export const App: React.FC = () => {
           p1Name={roomState.p1Name}
           p2Name={roomState.p2Name}
           localSlot={localSlot}
+          matchStats={snapshot.matchStats}
+          p1Rematch={Boolean(snapshot.p1Rematch || roomState.p1Rematch)}
+          p2Rematch={Boolean(snapshot.p2Rematch || roomState.p2Rematch)}
+          gameMode={roomState.gameMode}
           onRematch={() => network.sendRematch()}
-          onQuitToLobby={() => {
-            network.setReady(false);
-          }}
+          onQuitToLobby={() => network.sendQuitToLobby()}
         />
       )}
 

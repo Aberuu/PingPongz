@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { getLocalIpAddresses } from './networkUtils.js';
 import { GameRoom } from './gameRoom.js';
-import type { ClientInputMsg, PlayerSlot } from '../shared/types.js';
+import type { ClientInputMsg, PlayerSlot, GameMode, BotDifficulty, PracticeZone } from '../shared/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,6 +44,7 @@ const gameRoom = new GameRoom(io);
 const localIps = getLocalIpAddresses();
 const primaryHostIp = localIps[0] || '127.0.0.1';
 const hostUrl = `http://${primaryHostIp}:${PORT}`;
+gameRoom.hostAddress = hostUrl;
 
 io.on('connection', (socket) => {
   // Immediately emit current room state
@@ -64,6 +65,15 @@ io.on('connection', (socket) => {
     gameRoom.handleReady(socket, data.ready, hostUrl);
   });
 
+  // Game Mode & AI / Practice Configuration
+  socket.on('c2s_set_mode', (data: { mode: GameMode; botDifficulty?: BotDifficulty; practiceZone?: PracticeZone }) => {
+    gameRoom.handleSetMode(data.mode, data.botDifficulty, data.practiceZone, hostUrl);
+  });
+
+  socket.on('c2s_set_practice_zone', (data: { zone: PracticeZone }) => {
+    gameRoom.handleSetPracticeZone(data.zone, hostUrl);
+  });
+
   // High-frequency volatile player input (60Hz)
   socket.on('c2s_input', (input: ClientInputMsg) => {
     gameRoom.handleInput(socket, input);
@@ -80,8 +90,13 @@ io.on('connection', (socket) => {
   });
 
   // Rematch request
-  socket.on('c2s_rematch', () => {
-    gameRoom.handleRematch(socket, hostUrl);
+  socket.on('c2s_rematch', (data?: { slot?: PlayerSlot }) => {
+    gameRoom.handleRematch(socket, data, hostUrl);
+  });
+
+  // Quit back to lobby request
+  socket.on('c2s_quit_to_lobby', () => {
+    gameRoom.handleQuitToLobby(hostUrl);
   });
 
   // Low-latency clock sync & ping

@@ -150,6 +150,50 @@ class ArcadeAudioSystem {
     osc.stop(this.ctx.currentTime + (isFinal ? 0.26 : 0.11));
   }
 
+  // Sweet spot hit sound: crisp high-harmonic crystalline ping
+  public playSweetSpot() {
+    this.ensureContext();
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(987.77, this.ctx.currentTime); // B5
+    osc.frequency.exponentialRampToValueAtTime(1318.51, this.ctx.currentTime + 0.08); // E6
+
+    gain.gain.setValueAtTime(0.55, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.18);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.19);
+  }
+
+  // Slice / chop defensive lob sound: soft brushed swoosh
+  public playSliceChop() {
+    this.ensureContext();
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(320, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(160, this.ctx.currentTime + 0.10);
+
+    gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.10);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.11);
+  }
+
   // Match victory fanfare
   public playVictoryJingle() {
     this.ensureContext();

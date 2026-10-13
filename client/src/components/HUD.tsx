@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { ScoreState, PlayerSlot, GamePhase } from '@shared/types';
+import type { ScoreState, PlayerSlot, GamePhase, GameMode, PracticeZone } from '@shared/types';
 
 interface HUDProps {
   score: ScoreState;
@@ -16,6 +16,10 @@ interface HUDProps {
   isPointerLocked: boolean;
   onLockClick: () => void;
   onSettingsClick: () => void;
+  onQuitToLobby?: () => void;
+  gameMode?: GameMode;
+  practiceZone?: PracticeZone;
+  onSelectPracticeZone?: (zone: PracticeZone) => void;
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -32,7 +36,11 @@ export const HUD: React.FC<HUDProps> = ({
   p2Name,
   isPointerLocked,
   onLockClick,
-  onSettingsClick
+  onSettingsClick,
+  onQuitToLobby,
+  gameMode,
+  practiceZone,
+  onSelectPracticeZone
 }) => {
   // F3 toggle for Ping/FPS stats (hidden by default per user guidelines)
   const [showStats, setShowStats] = useState(false);
@@ -139,70 +147,113 @@ export const HUD: React.FC<HUDProps> = ({
           <div style={{ width: '80px' }} />
         )}
 
-        {/* Unified Sleek Top-Center Scoreboard */}
-        <div
-          style={{
-            backgroundColor: 'rgba(18, 22, 30, 0.92)',
-            border: '3px solid #2c3342',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
-            padding: '8px 22px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '20px'
-          }}
-        >
-          {/* Player 1 Block */}
-          <div style={{ textAlign: 'center', minWidth: '70px' }}>
-            <div
-              style={{
-                fontSize: '10px',
-                color: '#d32f2f',
-                marginBottom: '2px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                justifyContent: 'center'
-              }}
-            >
-              {p1Name}
-              {serverSlot === 'p1' && (
-                <span title="Giliran Servis" style={{ color: '#ffb300', fontSize: '10px' }}>
-                  ●
-                </span>
-              )}
+        {/* Top-Center Header: Scoreboard OR Practice Mode Drill Bar */}
+        {gameMode === 'practice' ? (
+          <div
+            style={{
+              backgroundColor: 'rgba(18, 22, 30, 0.92)',
+              border: '3px solid #2c3342',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+              padding: '6px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '6px',
+              pointerEvents: 'auto'
+            }}
+          >
+            <div style={{ fontSize: '11px', color: '#ffb300', fontWeight: 'bold' }}>
+              MODE LATIHAN (BALL MACHINE)
             </div>
-            <div style={{ fontSize: '26px', color: '#f0f4f8', lineHeight: 1 }}>{score.p1}</div>
-          </div>
-
-          {/* VS Divider */}
-          <div style={{ fontSize: '14px', color: '#556680' }}>:</div>
-
-          {/* Player 2 Block */}
-          <div style={{ textAlign: 'center', minWidth: '70px' }}>
-            <div
-              style={{
-                fontSize: '10px',
-                color: '#1976d2',
-                marginBottom: '2px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                justifyContent: 'center'
-              }}
-            >
-              {p2Name}
-              {serverSlot === 'p2' && (
-                <span title="Giliran Servis" style={{ color: '#ffb300', fontSize: '10px' }}>
-                  ●
-                </span>
-              )}
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <span style={{ fontSize: '9px', color: '#8c96a5' }}>ZONA UMPAN:</span>
+              {(['center', 'left', 'right', 'random'] as PracticeZone[]).map((z) => (
+                <button
+                  key={z}
+                  className={`pixel-btn ${(practiceZone ?? 'random') === z ? 'btn-primary' : ''}`}
+                  onClick={() => onSelectPracticeZone?.(z)}
+                  style={{ fontSize: '8px', padding: '4px 8px' }}
+                >
+                  {z === 'center' ? 'Tengah' : z === 'left' ? 'Kiri' : z === 'right' ? 'Kanan' : 'Acak'}
+                </button>
+              ))}
             </div>
-            <div style={{ fontSize: '26px', color: '#f0f4f8', lineHeight: 1 }}>{score.p2}</div>
           </div>
-        </div>
+        ) : (
+          <div
+            style={{
+              backgroundColor: 'rgba(18, 22, 30, 0.92)',
+              border: '3px solid #2c3342',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+              padding: '8px 22px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '20px'
+            }}
+          >
+            {/* Player 1 Block */}
+            <div style={{ textAlign: 'center', minWidth: '70px' }}>
+              <div
+                style={{
+                  fontSize: '10px',
+                  color: '#d32f2f',
+                  marginBottom: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  justifyContent: 'center'
+                }}
+              >
+                {p1Name}
+                {serverSlot === 'p1' && (
+                  <span title="Giliran Servis" style={{ color: '#ffb300', fontSize: '10px' }}>
+                    ●
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: '26px', color: '#f0f4f8', lineHeight: 1 }}>{score.p1}</div>
+            </div>
 
-        {/* Settings Button (Top-Right) */}
-        <div style={{ pointerEvents: 'auto' }}>
+            {/* VS Divider */}
+            <div style={{ fontSize: '14px', color: '#556680' }}>:</div>
+
+            {/* Player 2 Block */}
+            <div style={{ textAlign: 'center', minWidth: '70px' }}>
+              <div
+                style={{
+                  fontSize: '10px',
+                  color: '#1976d2',
+                  marginBottom: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  justifyContent: 'center'
+                }}
+              >
+                {p2Name}
+                {serverSlot === 'p2' && (
+                  <span title="Giliran Servis" style={{ color: '#ffb300', fontSize: '10px' }}>
+                    ●
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: '26px', color: '#f0f4f8', lineHeight: 1 }}>{score.p2}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Top-Right Action Buttons */}
+        <div style={{ pointerEvents: 'auto', display: 'flex', gap: '8px' }}>
+          {onQuitToLobby && (
+            <button
+              className="pixel-btn"
+              onClick={onQuitToLobby}
+              style={{ fontSize: '10px', padding: '8px 12px', color: '#ffb300' }}
+              title="Kembali ke Menu Utama / Lobi"
+            >
+              LOBI
+            </button>
+          )}
           <button
             className="pixel-btn"
             onClick={onSettingsClick}

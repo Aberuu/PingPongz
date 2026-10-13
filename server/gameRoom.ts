@@ -4,7 +4,9 @@ import {
   PADDLE_PHYSICS,
   BALL_PHYSICS,
   SIMULATION,
-  MATCH_RULES
+  MATCH_RULES,
+  PRACTICE_SETTINGS,
+  BOT_SETTINGS
 } from '../shared/constants.js';
 import type {
   PlayerSlot,
@@ -15,7 +17,12 @@ import type {
   SnapshotData,
   GameEventData,
   ClientInputMsg,
-  RoomStateMsg
+  RoomStateMsg,
+  GameMode,
+  BotDifficulty,
+  PracticeZone,
+  PracticeStats,
+  MatchStats
 } from '../shared/types.js';
 import {
   checkMatchWinner,
@@ -27,7 +34,7 @@ import { stepBallPhysics, clamp } from './physics.js';
 
 interface ConnectedPlayer {
   id: string;
-  socket: Socket;
+  socket: Socket | null;
   name: string;
   ready: boolean;
   rematch: boolean;
@@ -37,6 +44,45 @@ export class GameRoom {
   private io: Server;
   public p1: ConnectedPlayer | null = null;
   public p2: ConnectedPlayer | null = null;
+
+  public gameMode: GameMode = 'match';
+  public botDifficulty: BotDifficulty = 'medium';
+  public practiceZone: PracticeZone = 'random';
+  public practiceStats: PracticeStats = {
+    totalShots: 0,
+    returnedShots: 0,
+    ballsServed: 0,
+    ballsReturned: 0,
+    returnRate: 0,
+    zoneReturns: {
+      center: { total: 0, returned: 0 },
+      left: { total: 0, returned: 0 },
+      right: { total: 0, returned: 0 },
+      random: { total: 0, returned: 0 }
+    }
+  };
+  public matchStats: MatchStats = {
+    longestRally: 0,
+    currentRally: 0,
+    p1Smashes: 0,
+    p2Smashes: 0,
+    totalPoints: 0,
+    rallyLengths: [],
+    maxBallSpeed: 0,
+    smashesP1: 0,
+    smashesP2: 0,
+    acesP1: 0,
+    acesP2: 0,
+    returnHeatmap: [
+      [0, 0, 0],
+      [0, 0, 0],
+      [0, 0, 0],
+      [0, 0, 0],
+      [0, 0, 0]
+    ]
+  };
+  public replayBuffer: SnapshotData[] = [];
+  public hostAddress = '';
 
   public phase: GamePhase = 'LOBBY';
   public score: ScoreState = { p1: 0, p2: 0 };
@@ -78,26 +124,87 @@ export class GameRoom {
   private pointTransitionTimer = 0;
   private ballInactivityTimer = 0;
   private disconnectInterval: NodeJS.Timeout | null = null;
+  private practiceFeedTimer = 0;
+  private botReactionTimer = 0;
+  private botTargetPos = { x: 0, y: 0.95 };
+  private botSwingTimer = 0;
+  private botServeTimer = 0;
+  private currentRallyShots = 0;
 
   constructor(io: Server) {
     this.io = io;
     this.startSimulationLoop();
   }
 
-  public getRoomState(hostAddress: string): RoomStateMsg {
+  public getRoomState(hostAddress = this.hostAddress): RoomStateMsg {
+    const finalHost = hostAddress || this.hostAddress;
     return {
       p1Connected: !!this.p1,
       p2Connected: !!this.p2,
       p1Ready: !!this.p1?.ready,
       p2Ready: !!this.p2?.ready,
       p1Name: this.p1?.name || 'Player 1',
-      p2Name: this.p2?.name || 'Player 2',
-      hostAddress
+      p2Name: this.p2?.name || (this.gameMode === 'bot' ? `Bot (${this.botDifficulty.toUpperCase()})` : (this.gameMode === 'practice' ? 'Ball Machine' : 'Player 2')),
+      hostAddress: finalHost,
+      gameMode: this.gameMode,
+      botDifficulty: this.botDifficulty,
+      practiceZone: this.practiceZone,
+      p1Rematch: !!this.p1?.rematch,
+      p2Rematch: !!this.p2?.rematch
     };
   }
 
-  public broadcastRoomState(hostAddress: string) {
-    this.io.emit('s2c_room_state', this.getRoomState(hostAddress));
+  public broadcastRoomState(hostAddress = this.hostAddress) {
+    if (hostAddress) this.hostAddress = hostAddress;
+    this.io.emit('s2c_room_state', this.getRoomState(this.hostAddress));
+  }
+
+  public handleSetMode(mode: GameMode, botDifficulty?: BotDifficulty, practiceZone?: PracticeZone, hostAddress = '') {
+    this.gameMode = mode;
+    if (botDifficulty) this.botDifficulty = botDifficulty;
+    if (practiceZone) this.practiceZone = practiceZone;
+
+    if (mode === 'bot') {
+      this.p2 = {
+        id: 'bot-player',
+        socket: null,
+        name: `Bot ${this.botDifficulty.toUpperCase()}`,
+        ready: true,
+        rematch: true
+      };
+    } else if (mode === 'practice') {
+      this.p2 = {
+        id: 'practice-machine',
+        socket: null,
+        name: 'Ball Machine',
+        ready: true,
+        rematch: true
+      };
+      this.practiceStats = {
+        totalShots: 0,
+        returnedShots: 0,
+        ballsServed: 0,
+        ballsReturned: 0,
+        returnRate: 0,
+        zoneReturns: {
+          center: { total: 0, returned: 0 },
+          left: { total: 0, returned: 0 },
+          right: { total: 0, returned: 0 },
+          random: { total: 0, returned: 0 }
+        }
+      };
+    } else if (mode === 'match') {
+      if (this.p2?.id === 'bot-player' || this.p2?.id === 'practice-machine') {
+        this.p2 = null;
+      }
+    }
+
+    this.broadcastRoomState(hostAddress);
+  }
+
+  public handleSetPracticeZone(zone: PracticeZone, hostAddress = '') {
+    this.practiceZone = zone;
+    this.broadcastRoomState(hostAddress);
   }
 
   public autoAssignSlotOnConnect(socket: Socket): PlayerSlot {
@@ -170,6 +277,11 @@ export class GameRoom {
     if (this.p1 && this.p1.id === socket.id) this.p1.ready = ready;
     if (this.p2 && this.p2.id === socket.id) this.p2.ready = ready;
 
+    // Bot / machine is always ready
+    if ((this.gameMode === 'bot' || this.gameMode === 'practice') && this.p2) {
+      this.p2.ready = true;
+    }
+
     this.broadcastRoomState(hostAddress);
 
     if (this.p1?.ready && this.p2?.ready && this.phase === 'LOBBY') {
@@ -205,6 +317,8 @@ export class GameRoom {
     paddle.yaw = clamp(input.yaw, -Math.PI / 4, Math.PI / 4);
     paddle.roll = clamp(input.roll, -Math.PI / 4, Math.PI / 4);
     paddle.isSmashing = !!input.isSmash;
+    paddle.isSlice = !!input.isSlice;
+    paddle.footworkX = input.footworkX ?? 0;
     if (input.assistPreset) {
       paddle.assistPreset = input.assistPreset;
     }
@@ -248,11 +362,28 @@ export class GameRoom {
     }
   }
 
-  public handleRematch(socket: Socket, hostAddress = '') {
+  public handleRematch(socket: Socket, data?: { slot?: PlayerSlot }, hostAddress = '') {
     if (this.phase !== 'GAME_OVER') return;
+    if (hostAddress) this.hostAddress = hostAddress;
 
-    if (this.p1 && this.p1.id === socket.id) this.p1.rematch = true;
-    if (this.p2 && this.p2.id === socket.id) this.p2.rematch = true;
+    if (this.p1 && (this.p1.id === socket.id || data?.slot === 'p1')) {
+      this.p1.rematch = !this.p1.rematch;
+      this.p1.ready = this.p1.rematch;
+    }
+    if (this.p2 && (this.p2.id === socket.id || data?.slot === 'p2')) {
+      this.p2.rematch = !this.p2.rematch;
+      this.p2.ready = this.p2.rematch;
+    }
+
+    if (this.gameMode === 'bot' || this.gameMode === 'practice') {
+      if (this.p2) {
+        this.p2.rematch = true;
+        this.p2.ready = true;
+      }
+    }
+
+    this.broadcastRoomState(this.hostAddress);
+    this.broadcastSnapshot();
 
     if (this.p1?.rematch && this.p2?.rematch) {
       // Reset match
@@ -263,10 +394,34 @@ export class GameRoom {
       this.winner = null;
       this.p1.rematch = false;
       this.p2.rematch = false;
+      this.broadcastRoomState(this.hostAddress);
+      this.broadcastSnapshot();
       this.startCountdown();
     }
+  }
 
-    this.broadcastRoomState(hostAddress);
+  public handleQuitToLobby(hostAddress = '') {
+    if (hostAddress) this.hostAddress = hostAddress;
+    this.phase = 'LOBBY';
+    this.score = { p1: 0, p2: 0 };
+    this.winner = null;
+    this.pausedBy = null;
+    this.countdownRemaining = 3;
+    if (this.p1) {
+      this.p1.ready = false;
+      this.p1.rematch = false;
+    }
+    if (this.p2) {
+      this.p2.ready = this.gameMode === 'bot' || this.gameMode === 'practice';
+      this.p2.rematch = false;
+    }
+    this.ball = {
+      pos: { x: 0, y: TABLE_DIMENSIONS.height + 0.15, z: PADDLE_PHYSICS.p1BaseZ - 0.2 },
+      velocity: { x: 0, y: 0, z: 0 }
+    };
+    this.rallyState = createInitialRallyState('p1');
+    this.broadcastRoomState(this.hostAddress);
+    this.broadcastSnapshot();
   }
 
   public handleDisconnect(socket: Socket, hostAddress = '') {
@@ -325,6 +480,11 @@ export class GameRoom {
   }
 
   private resetBallToServe() {
+    if (this.gameMode === 'practice') {
+      this.feedPracticeBall();
+      return;
+    }
+
     this.phase = 'SERVING';
     this.ballInactivityTimer = 0;
     this.rallyState = createInitialRallyState(this.currentServer);
@@ -347,6 +507,135 @@ export class GameRoom {
     });
   }
 
+  public feedPracticeBall() {
+    this.phase = 'RALLY';
+    this.ballInactivityTimer = 0;
+    this.rallyState = createInitialRallyState('p2');
+    this.rallyState.isServeRally = false;
+    this.rallyState.lastHitter = 'p2';
+    this.rallyState.bouncesOnSide = { p1: 0, p2: 0 };
+
+    let zoneKey: 'center' | 'left' | 'right' = 'center';
+    if (this.practiceZone === 'random') {
+      const candidates: ('center' | 'left' | 'right')[] = ['center', 'left', 'right'];
+      zoneKey = candidates[Math.floor(Math.random() * candidates.length)];
+    } else {
+      zoneKey = this.practiceZone;
+    }
+    const target = PRACTICE_SETTINGS.zones[zoneKey];
+
+    const feedX = 0;
+    const feedY = PRACTICE_SETTINGS.feedY;
+    const feedZ = PRACTICE_SETTINGS.feedZ;
+    this.ball.pos = { x: feedX, y: feedY, z: feedZ };
+
+    // Trajectory to target bounce point on P1 table half
+    const flightTime = 0.58;
+    const targetY = TABLE_DIMENSIONS.height + BALL_PHYSICS.radius;
+    const vx = (target.x - feedX) / flightTime;
+    const vz = (target.z - feedZ) / flightTime;
+    const vy = (targetY - feedY + 0.5 * BALL_PHYSICS.gravity * flightTime * flightTime) / flightTime;
+
+    this.ball.velocity = { x: vx, y: vy, z: vz };
+    this.practiceStats.ballsServed += 1;
+    this.practiceStats.totalShots += 1;
+    this.practiceStats.returnRate = Math.round(
+      (this.practiceStats.ballsReturned / this.practiceStats.ballsServed) * 100
+    );
+
+    this.emitEvent({
+      type: 'PADDLE_HIT',
+      payload: { player: 'p2', isSmash: false, pos: { ...this.ball.pos } }
+    });
+  }
+
+  private simulateBot(dt: number) {
+    if (this.gameMode !== 'bot') return;
+
+    // Handle bot serving
+    if (this.phase === 'SERVING' && this.currentServer === 'p2') {
+      this.botServeTimer += dt;
+      if (this.botServeTimer >= 1.0) {
+        this.botServeTimer = 0;
+        this.executeServeToss();
+      }
+      return;
+    }
+
+    if (this.phase !== 'RALLY') return;
+
+    const cfg = BOT_SETTINGS[this.botDifficulty];
+
+    // Check if ball is moving towards P2 (vz < -0.1)
+    if (this.ball.velocity.z < -0.1) {
+      const dz = PADDLE_PHYSICS.p2BaseZ - this.ball.pos.z;
+      const timeToArrive = dz / this.ball.velocity.z;
+
+      if (timeToArrive > 0 && timeToArrive < 2.0) {
+        this.botReactionTimer += dt;
+        if (this.botReactionTimer >= cfg.reactionTime) {
+          const predX = this.ball.pos.x + this.ball.velocity.x * timeToArrive;
+          const jitter = (Math.random() - 0.5) * 2 * cfg.errorJitter;
+          this.botTargetPos.x = clamp(predX + jitter, PADDLE_PHYSICS.minX, PADDLE_PHYSICS.maxX);
+
+          const predY = Math.max(
+            TABLE_DIMENSIONS.height + 0.12,
+            this.ball.pos.y + this.ball.velocity.y * timeToArrive - 0.5 * BALL_PHYSICS.gravity * timeToArrive * timeToArrive
+          );
+          this.botTargetPos.y = clamp(predY, PADDLE_PHYSICS.minY, PADDLE_PHYSICS.maxY);
+        }
+      }
+    } else {
+      // Ball moving away, reset reaction timer and drift back to center
+      this.botReactionTimer = 0;
+      this.botTargetPos.x = 0;
+      this.botTargetPos.y = 0.95;
+    }
+
+    // Move bot paddle smoothly toward target
+    const speed = this.botDifficulty === 'hard' ? 6.2 : (this.botDifficulty === 'medium' ? 4.5 : 3.0);
+    const dx = this.botTargetPos.x - this.p2Paddle.pos.x;
+    const dy = this.botTargetPos.y - this.p2Paddle.pos.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist > 0.005) {
+      const step = Math.min(dist, speed * dt);
+      this.p2Paddle.pos.x += (dx / dist) * step;
+      this.p2Paddle.pos.y += (dy / dist) * step;
+      this.p2Paddle.velocity.x = (dx / dist) * speed;
+      this.p2Paddle.velocity.y = (dy / dist) * speed;
+    } else {
+      this.p2Paddle.velocity.x = 0;
+      this.p2Paddle.velocity.y = 0;
+    }
+
+    // Bot swing execution when ball is within reaching distance
+    const distZ = Math.abs(this.ball.pos.z - PADDLE_PHYSICS.p2BaseZ);
+    if (distZ < 0.32 && this.botSwingTimer <= 0 && this.ball.velocity.z < 0) {
+      const roll = Math.random();
+      const shouldSmash = roll < cfg.smashChance;
+      const shouldSlice = !shouldSmash && roll < (cfg.smashChance + cfg.sliceChance);
+
+      this.p2Paddle.isSmashing = shouldSmash;
+      this.p2Paddle.isSlice = shouldSlice;
+      const botInwardBias = Math.atan2(this.p2Paddle.pos.x, 1.8);
+      this.p2Paddle.yaw = botInwardBias + (Math.random() - 0.5) * 0.14;
+      this.p2Paddle.pos.z = PADDLE_PHYSICS.p2BaseZ + 0.14;
+      this.p2Paddle.velocity.z = 2.4;
+      this.botSwingTimer = 0.35;
+    }
+
+    if (this.botSwingTimer > 0) {
+      this.botSwingTimer -= dt;
+      if (this.botSwingTimer <= 0) {
+        this.p2Paddle.pos.z = PADDLE_PHYSICS.p2BaseZ;
+        this.p2Paddle.velocity.z = 0;
+        this.p2Paddle.isSmashing = false;
+        this.p2Paddle.isSlice = false;
+      }
+    }
+  }
+
   private executeServeToss() {
     if (this.phase !== 'SERVING') return;
 
@@ -359,12 +648,11 @@ export class GameRoom {
     const serverPaddle = isP1 ? this.p1Paddle : this.p2Paddle;
     const dirZ = isP1 ? -1 : 1;
 
-    // Authentic arcade serve velocity:
-    // Aim X calculated from paddle yaw angle (inverted for P2 who faces +Z)
-    const aimYaw = isP1 ? serverPaddle.yaw : -serverPaddle.yaw;
+    // Authentic arcade serve velocity (symmetric for both Red and Blue side):
+    // Positive yaw turns paddle inward from the right, requiring negative vx towards center
     const forwardSpeed = 4.3;
-    const vx = Math.sin(aimYaw) * forwardSpeed;
-    const vz = dirZ * Math.cos(aimYaw) * forwardSpeed;
+    const vx = -Math.sin(serverPaddle.yaw) * forwardSpeed;
+    const vz = dirZ * Math.cos(serverPaddle.yaw) * forwardSpeed;
     const vy = -1.15; // Dips onto server's own table half first
 
     this.ball.velocity = {
@@ -380,8 +668,24 @@ export class GameRoom {
   }
 
   private awardPoint(winner: PlayerSlot, reason: string) {
+    if (this.gameMode === 'practice') {
+      setTimeout(() => {
+        if (this.gameMode === 'practice') this.feedPracticeBall();
+      }, 750);
+      return;
+    }
+
     if (winner === 'p1') this.score.p1 += 1;
     else this.score.p2 += 1;
+
+    this.matchStats.rallyLengths.push(this.currentRallyShots);
+    this.matchStats.longestRally = Math.max(this.matchStats.longestRally, this.currentRallyShots);
+    this.matchStats.totalPoints += 1;
+    if (this.currentRallyShots <= 1) {
+      if (winner === 'p1') this.matchStats.acesP1 += 1;
+      else this.matchStats.acesP2 += 1;
+    }
+    this.currentRallyShots = 0;
 
     this.phase = 'POINT_SCORED';
     this.pointTransitionTimer = 1.6; // 1.6 second display delay
@@ -399,6 +703,16 @@ export class GameRoom {
     if (matchWinner) {
       this.winner = matchWinner;
       this.phase = 'GAME_OVER';
+      if (this.p1) {
+        this.p1.rematch = false;
+        this.p1.ready = false;
+      }
+      if (this.p2) {
+        this.p2.rematch = this.gameMode === 'bot';
+        this.p2.ready = this.gameMode === 'bot';
+      }
+      this.broadcastRoomState(this.hostAddress);
+      this.broadcastSnapshot();
       this.emitEvent({
         type: 'MATCH_OVER',
         payload: {
@@ -426,6 +740,19 @@ export class GameRoom {
   private tick() {
     const dt = SIMULATION.dt;
     this.sequence += 1;
+
+    // Simulate Bot AI if in bot mode
+    this.simulateBot(dt);
+
+    // Track max ball speed
+    const currentSpeed = Math.sqrt(
+      this.ball.velocity.x * this.ball.velocity.x +
+      this.ball.velocity.y * this.ball.velocity.y +
+      this.ball.velocity.z * this.ball.velocity.z
+    );
+    if (currentSpeed > this.matchStats.maxBallSpeed) {
+      this.matchStats.maxBallSpeed = Math.round(currentSpeed * 10) / 10;
+    }
 
     // Handle point transition delay
     if (this.phase === 'POINT_SCORED') {
@@ -464,8 +791,27 @@ export class GameRoom {
 
         if (event.type === 'PADDLE_HIT' && event.payload?.player) {
           this.ballInactivityTimer = 0;
+          this.currentRallyShots += 1;
           const hitter = event.payload.player;
           const receiver = hitter === 'p1' ? 'p2' : 'p1';
+
+          if (event.payload?.isSmash) {
+            if (hitter === 'p1') {
+              this.matchStats.smashesP1 += 1;
+              this.matchStats.p1Smashes += 1;
+            } else {
+              this.matchStats.smashesP2 += 1;
+              this.matchStats.p2Smashes += 1;
+            }
+          }
+
+          if (this.gameMode === 'practice' && hitter === 'p1') {
+            this.practiceStats.ballsReturned += 1;
+            this.practiceStats.returnedShots += 1;
+            this.practiceStats.returnRate = Math.round(
+              (this.practiceStats.ballsReturned / this.practiceStats.ballsServed) * 100
+            );
+          }
 
           // Volley violation check:
           // In table tennis, player must let the ball bounce on their side before striking it
@@ -487,6 +833,15 @@ export class GameRoom {
         if (event.type === 'TABLE_BOUNCE' && event.payload?.player) {
           const side = event.payload.player;
           this.rallyState.bouncesOnSide[side] += 1;
+
+          // Record heatmap bounce
+          const bouncePos = event.payload?.pos || this.ball.pos;
+          const zDepthRatio = Math.min(1.0, Math.abs(bouncePos.z) / TABLE_DIMENSIONS.halfLength);
+          const rowIndex = clamp(Math.floor(zDepthRatio * 5), 0, 4);
+          let colIndex = 1;
+          if (bouncePos.x < -0.25) colIndex = 0;
+          else if (bouncePos.x > 0.25) colIndex = 2;
+          this.matchStats.returnHeatmap[rowIndex][colIndex] += 1;
 
           if (this.rallyState.isServeRally) {
             if (this.rallyState.servePhase === 'MUST_BOUNCE_SERVER_SIDE') {
@@ -528,6 +883,13 @@ export class GameRoom {
 
       // Check out of bounds / floor hit
       if (result.ballHitFloor) {
+        if (this.gameMode === 'practice') {
+          setTimeout(() => {
+            if (this.gameMode === 'practice') this.feedPracticeBall();
+          }, 750);
+          return;
+        }
+
         const hitter = this.rallyState.lastHitter;
         const opponent = hitter === 'p1' ? 'p2' : 'p1';
 
@@ -573,8 +935,29 @@ export class GameRoom {
       countdown: this.countdownRemaining,
       disconnectCountdown: this.disconnectRemaining,
       pausedBy: this.pausedBy,
-      winner: this.winner
+      winner: this.winner,
+      p1Rematch: !!this.p1?.rematch,
+      p2Rematch: !!this.p2?.rematch,
+      matchStats: {
+        longestRally: this.matchStats.longestRally,
+        currentRally: this.currentRallyShots,
+        p1Smashes: this.matchStats.smashesP1,
+        p2Smashes: this.matchStats.smashesP2,
+        totalPoints: this.matchStats.totalPoints,
+        rallyLengths: [...this.matchStats.rallyLengths],
+        maxBallSpeed: this.matchStats.maxBallSpeed,
+        smashesP1: this.matchStats.smashesP1,
+        smashesP2: this.matchStats.smashesP2,
+        acesP1: this.matchStats.acesP1,
+        acesP2: this.matchStats.acesP2,
+        returnHeatmap: this.matchStats.returnHeatmap.map((row) => [...row])
+      }
     };
+
+    this.replayBuffer.push(snapshot);
+    if (this.replayBuffer.length > 240) {
+      this.replayBuffer.shift();
+    }
 
     this.io.emit('s2c_snapshot', snapshot);
   }

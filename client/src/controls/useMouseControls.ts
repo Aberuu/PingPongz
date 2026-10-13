@@ -33,6 +33,8 @@ export function useMouseControls({
     pitch: 0,
     yaw: 0,
     roll: 0,
+    footworkX: 0,
+    isSlice: false,
     lastSmashTime: 0,
     seq: 0
   });
@@ -79,12 +81,17 @@ export function useMouseControls({
 
       const p = paddleRef.current;
       const xDirection = playerSlot === 'p1' ? 1 : -1;
-      const step = 0.045;
+      const step = 0.05;
 
+      // A and D keys control baseline footwork during both rally and serve
       if (e.code === 'KeyA' || e.key === 'ArrowLeft') {
+        p.footworkX -= step * xDirection;
+        p.footworkX = Math.max(-PADDLE_PHYSICS.footworkMaxX, Math.min(PADDLE_PHYSICS.footworkMaxX, p.footworkX));
         p.x -= step * xDirection;
         p.x = Math.max(PADDLE_PHYSICS.minX, Math.min(PADDLE_PHYSICS.maxX, p.x));
       } else if (e.code === 'KeyD' || e.key === 'ArrowRight') {
+        p.footworkX += step * xDirection;
+        p.footworkX = Math.max(-PADDLE_PHYSICS.footworkMaxX, Math.min(PADDLE_PHYSICS.footworkMaxX, p.footworkX));
         p.x += step * xDirection;
         p.x = Math.max(PADDLE_PHYSICS.minX, Math.min(PADDLE_PHYSICS.maxX, p.x));
       }
@@ -111,15 +118,15 @@ export function useMouseControls({
       p.swingZ = Math.min(PADDLE_PHYSICS.swingDepthMax, mouseSpeed * 0.0035);
 
       // Procedural tilt calculation
-      // Yaw angles paddle slightly inward toward table center and follows horizontal velocity
-      const centerBias = -p.x * 0.25;
-      const velocityYaw = -e.movementX * 0.008 * xDirection;
-      p.yaw = Math.max(-0.45, Math.min(0.45, centerBias + velocityYaw));
+      // Yaw angles paddle naturally inward toward table center when reaching for side/corner balls
+      const inwardBias = Math.atan2(p.x, 1.8);
+      const velocityYaw = -e.movementX * 0.007 * xDirection;
+      p.yaw = Math.max(-0.65, Math.min(0.65, inwardBias + velocityYaw));
 
-      // Pitch angles paddle slightly upward when low or swinging up
-      const heightBias = (0.95 - p.y) * 0.4;
-      const velocityPitch = -e.movementY * 0.008;
-      p.pitch = Math.max(-0.45, Math.min(0.45, heightBias + velocityPitch));
+      // Pitch angles: when low, scoop face slightly up (+); when high, close face down (-) for topspin
+      const heightBias = p.y < 0.95 ? (0.95 - p.y) * 0.35 : (0.95 - p.y) * 0.45;
+      const velocityPitch = Math.max(-0.12, Math.min(0.12, -e.movementY * 0.003));
+      p.pitch = Math.max(-0.25, Math.min(0.22, heightBias + velocityPitch));
 
       // Roll banks slightly with horizontal motion
       p.roll = Math.max(-0.3, Math.min(0.3, e.movementX * 0.005 * xDirection));
@@ -129,7 +136,7 @@ export function useMouseControls({
       if (!isLocked || !isActive) return;
 
       if (e.button === 0) {
-        // Left click
+        // Left click: Smash / standard hit or serve action
         const now = Date.now();
         const p = paddleRef.current;
 
@@ -140,19 +147,36 @@ export function useMouseControls({
 
         // Also trigger serve toss if in serve phase
         onServeAction?.();
+      } else if (e.button === 2) {
+        // Right click: Defensive slice / lob (chop)
+        paddleRef.current.isSlice = true;
       }
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (e.button === 2) {
+        paddleRef.current.isSlice = false;
+      }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
     };
 
     document.addEventListener('pointerlockchange', handleLockChange);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('contextmenu', handleContextMenu);
 
     return () => {
       document.removeEventListener('pointerlockchange', handleLockChange);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('contextmenu', handleContextMenu);
     };
   }, [isLocked, isActive, sensitivity, playerSlot, onServeAction, onPauseToggle]);
 
@@ -186,6 +210,8 @@ export function useMouseControls({
         yaw: p.yaw,
         roll: p.roll,
         isSmash: isSmashing,
+        isSlice: p.isSlice,
+        footworkX: p.footworkX,
         assistPreset
       };
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ResolutionPreset } from './GameCanvas';
-import type { AssistPreset, CameraMode, Handedness, ScreenJuice } from '@shared/types';
+import type { AssistPreset, CameraMode, Handedness, ScreenJuice, CameraPreset } from '@shared/types';
 import { soundFx } from '../audio/synth';
 
 export interface UserSettings {
@@ -11,8 +11,12 @@ export interface UserSettings {
   resolution: ResolutionPreset;
   showCrosshair: boolean;
   showBallIndicator: boolean;
+  showRallyTrajectory: boolean;
   assistPreset: AssistPreset;
   cameraMode: CameraMode;
+  cameraPreset: CameraPreset;
+  shoulderOffset: number;
+  showDebugObstruction: boolean;
   handedness: Handedness;
   screenJuice: ScreenJuice;
 }
@@ -173,6 +177,59 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
+          {/* Camera Preset */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#8c96a5' }}>PRESET SUDUT KAMERA:</span>
+              <span style={{ color: '#ffb300' }}>
+                {settings.cameraPreset === 'ots' ? 'OTS (Pundak)' : settings.cameraPreset === 'high' ? 'High (Tinggi)' : 'FPV (1st Person)'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {(['ots', 'high', 'first-person'] as CameraPreset[]).map((preset) => (
+                <button
+                  key={preset}
+                  className={`pixel-btn ${settings.cameraPreset === preset ? 'btn-primary' : ''}`}
+                  onClick={() => handleChange('cameraPreset', preset)}
+                  style={{ flex: 1, fontSize: '10px', padding: '8px 4px' }}
+                >
+                  {preset === 'ots' ? 'OTS (Pundak)' : preset === 'high' ? 'High (Tinggi)' : 'FPV (1st-Person)'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Shoulder Offset Slider */}
+          {settings.cameraPreset === 'ots' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#8c96a5' }}>JARAK GESER PUNDAK (OFFSET):</span>
+                <span style={{ color: '#ffb300' }}>{(settings.shoulderOffset ?? 0.35).toFixed(2)}m</span>
+              </div>
+              <input
+                type="range"
+                min="0.20"
+                max="0.55"
+                step="0.05"
+                value={settings.shoulderOffset ?? 0.35}
+                onChange={(e) => handleChange('shoulderOffset', parseFloat(e.target.value))}
+                style={{ accentColor: '#ff7a00', cursor: 'pointer' }}
+              />
+            </div>
+          )}
+
+          {/* Debug LOS Obstruction Overlay */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
+            <span style={{ color: '#8c96a5' }}>DEBUG GARIS PANDANG (LOS RAY):</span>
+            <button
+              className={`pixel-btn ${settings.showDebugObstruction ? 'btn-primary' : ''}`}
+              onClick={() => handleChange('showDebugObstruction', !settings.showDebugObstruction)}
+              style={{ fontSize: '10px', padding: '6px 12px' }}
+            >
+              {settings.showDebugObstruction ? 'AKTIF' : 'NONAKTIF'}
+            </button>
+          </div>
+
           {/* Handedness Option */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ color: '#8c96a5' }}>TANGAN UTAMA (RAKET):</span>
@@ -233,6 +290,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               style={{ fontSize: '10px', padding: '6px 12px' }}
             >
               {settings.showBallIndicator ? 'AKTIF' : 'NONAKTIF'}
+            </button>
+          </div>
+
+          {/* Rally Trajectory Guide Line Toggle (Except Serve) */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
+            <span style={{ color: '#8c96a5' }}>GARIS BANTU SAAT RELI:</span>
+            <button
+              className={`pixel-btn ${(settings.showRallyTrajectory ?? true) ? 'btn-primary' : ''}`}
+              onClick={() => handleChange('showRallyTrajectory', !(settings.showRallyTrajectory ?? true))}
+              style={{ fontSize: '10px', padding: '6px 12px' }}
+            >
+              {(settings.showRallyTrajectory ?? true) ? 'AKTIF' : 'NONAKTIF'}
             </button>
           </div>
         </div>
