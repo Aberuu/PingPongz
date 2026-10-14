@@ -71,6 +71,11 @@ export function useMouseControls({
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+        return;
+      }
+
       if (e.key === 'Escape') {
         // Esc releases pointer and triggers pause
         onPauseToggle?.();

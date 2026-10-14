@@ -143,3 +143,54 @@ html, body, #root {
   opacity: 0.8;
 }
 
+
+/* Mobile Touch & Landscape Responsive Optimizations */
+html, body, #root, .arcade-viewport, canvas {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@media (max-height: 520px) {
+  .pixel-card {
+    padding: 14px !important;
+    max-height: 94vh !important;
+  }
+  .modal-overlay {
+    padding: 8px !important;
+  }
+}
+
+/* In-Game Live Chat styling */
+@keyframes fadeBubble {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  from {
+    opacity: 0.5;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.in-game-chat-panel input.pixel-input:focus {
+  border-color: var(--color-ball);
+  box-shadow: 0 0 8px rgba(255, 122, 0, 0.4);
+}
+
+@media (orientation: portrait) {
+  .in-game-chat-root {
+    bottom: 34% !important;
+    left: 8px !important;
+  }
+}

@@ -22,7 +22,9 @@ import type {
   BotDifficulty,
   PracticeZone,
   PracticeStats,
-  MatchStats
+  MatchStats,
+  ChatMessage,
+  TypingStatusMsg
 } from '../shared/types.js';
 import {
   checkMatchWinner,
@@ -436,6 +438,91 @@ export class GameRoom {
       this.startDisconnectTimer(hostAddress);
     } else if (this.phase === 'LOBBY') {
       this.broadcastRoomState(hostAddress);
+    }
+  }
+
+  public handleChatMessage(socket: Socket, data: { text: string; isQuickChat?: boolean }) {
+    if (!data || typeof data.text !== 'string') return;
+    const cleanText = data.text.trim().slice(0, 120);
+    if (!cleanText) return;
+
+    let senderSlot: PlayerSlot | 'system' = 'system';
+    let senderName = 'Penonton';
+
+    if (this.p1 && socket.id === this.p1.id) {
+      senderSlot = 'p1';
+      senderName = this.p1.name || 'Pemain 1';
+    } else if (this.p2 && socket.id === this.p2.id) {
+      senderSlot = 'p2';
+      senderName = this.p2.name || 'Pemain 2';
+    }
+
+    const chatMsg: ChatMessage = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      senderSlot,
+      senderName,
+      text: cleanText,
+      timestamp: Date.now(),
+      isQuickChat: Boolean(data.isQuickChat)
+    };
+
+    this.io.emit('s2c_chat_message', chatMsg);
+
+    if (this.gameMode === 'bot' && senderSlot === 'p1') {
+      this.triggerBotChatResponse(cleanText);
+    }
+  }
+
+  public handleTypingStatus(socket: Socket, isTyping: boolean) {
+    let senderSlot: PlayerSlot | null = null;
+    if (this.p1 && socket.id === this.p1.id) {
+      senderSlot = 'p1';
+    } else if (this.p2 && socket.id === this.p2.id) {
+      senderSlot = 'p2';
+    }
+
+    if (senderSlot) {
+      const msg: TypingStatusMsg = {
+        senderSlot,
+        isTyping: Boolean(isTyping)
+      };
+      socket.broadcast.emit('s2c_typing', msg);
+    }
+  }
+
+  private triggerBotChatResponse(playerText: string) {
+    const lower = playerText.toLowerCase();
+    let reply = '';
+    if (lower.includes('gg') || lower.includes('good game')) {
+      reply = 'GG! Permainan hebat!';
+    } else if (lower.includes('halo') || lower.includes('hai') || lower.includes('hi')) {
+      reply = 'Halo! Siap menerima servis?';
+    } else if (lower.includes('lag') || lower.includes('delay')) {
+      reply = 'Sensor saya mendeteksi latensi 0ms!';
+    } else if (lower.includes('rematch') || lower.includes('lagi')) {
+      reply = 'Tentu saja, ayo bertanding lagi!';
+    } else if (Math.random() < 0.45) {
+      const botReplies = [
+        'Pukulan yang menarik!',
+        'Saya terus mempelajari gaya bermainmu.',
+        'Fokus ke bola!',
+        'Bagus, ayo rally lebih lama!'
+      ];
+      reply = botReplies[Math.floor(Math.random() * botReplies.length)];
+    }
+
+    if (reply) {
+      setTimeout(() => {
+        const botMsg: ChatMessage = {
+          id: `${Date.now()}-bot`,
+          senderSlot: 'bot',
+          senderName: 'VoxelBot',
+          text: reply,
+          timestamp: Date.now(),
+          isQuickChat: false
+        };
+        this.io.emit('s2c_chat_message', botMsg);
+      }, 700 + Math.random() * 800);
     }
   }
 

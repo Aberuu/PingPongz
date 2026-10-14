@@ -99,6 +99,16 @@ io.on('connection', (socket) => {
     gameRoom.handleQuitToLobby(hostUrl);
   });
 
+  // Live in-game chat message
+  socket.on('c2s_chat_message', (data: { text: string; isQuickChat?: boolean }) => {
+    gameRoom.handleChatMessage(socket, data);
+  });
+
+  // Typing status indicator
+  socket.on('c2s_typing', (data: { isTyping: boolean }) => {
+    gameRoom.handleTypingStatus(socket, data?.isTyping);
+  });
+
   // Low-latency clock sync & ping
   socket.on('c2s_ping', (data: { clientTime: number }) => {
     socket.emit('s2c_pong', {

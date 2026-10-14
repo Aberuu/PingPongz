@@ -226,6 +226,37 @@ class ArcadeAudioSystem {
       t += note.d * 0.85;
     });
   }
+
+  // Incoming chat message: gentle crisp 2-tone retro 8-bit blip
+  public playChatBeep() {
+    this.ensureContext();
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+
+    const now = this.ctx.currentTime;
+    const notes = [
+      { f: 587.33, d: 0.05 }, // D5
+      { f: 880.00, d: 0.08 }  // A5
+    ];
+
+    let t = now;
+    notes.forEach((note) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(note.f, t);
+
+      gain.gain.setValueAtTime(0.20, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + note.d);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+
+      osc.start(t);
+      osc.stop(t + note.d + 0.01);
+      t += note.d;
+    });
+  }
 }
 
 export const soundFx = new ArcadeAudioSystem();

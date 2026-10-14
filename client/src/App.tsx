@@ -10,12 +10,16 @@ import type {
 import { TABLE_DIMENSIONS, PADDLE_PHYSICS } from '@shared/constants';
 import { network } from './network/socketClient';
 import { useMouseControls } from './controls/useMouseControls';
+import { useTouchControls } from './controls/useTouchControls';
+import { MobileControlsOverlay } from './components/MobileControlsOverlay';
+import { OrientationLockPrompt } from './components/OrientationLockPrompt';
 import { GameCanvas, type ResolutionPreset } from './components/GameCanvas';
 import { HUD } from './components/HUD';
 import { Lobby } from './components/Lobby';
 import { PauseModal } from './components/PauseModal';
 import { GameOverModal } from './components/GameOverModal';
 import { SettingsModal, type UserSettings } from './components/SettingsModal';
+import { InGameChat } from './components/InGameChat';
 import { soundFx } from './audio/synth';
 import './styles/arcade.css';
 
@@ -63,6 +67,7 @@ export const App: React.FC = () => {
   });
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [localSlot, setLocalSlot] = useState<PlayerSlot>('p1');
   const [fps, setFps] = useState(60);
 
@@ -94,11 +99,24 @@ export const App: React.FC = () => {
 
   const canvasContainerRef = useRef<HTMLDivElement>(null);
 
-  // Mouse Controls Hook
-  const { isLocked, requestLock, smashCooldownRatio, paddlePos } = useMouseControls({
+  // Touch & Mobile Device Detection
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    const checkTouch = () => {
+      const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      setIsTouchDevice(hasTouch);
+    };
+    checkTouch();
+  }, []);
+
+  const isControlsActive = snapshot.phase === 'RALLY' || snapshot.phase === 'SERVING';
+
+  // Desktop Mouse Controls Hook
+  const mouseControls = useMouseControls({
     sensitivity: settings.sensitivity,
     playerSlot: localSlot,
-    isActive: snapshot.phase === 'RALLY' || snapshot.phase === 'SERVING',
+    isActive: !isTouchDevice && isControlsActive,
     assistPreset: settings.assistPreset,
     handedness: settings.handedness,
     onServeAction: () => {
@@ -108,6 +126,27 @@ export const App: React.FC = () => {
       network.sendPauseToggle();
     }
   });
+
+  // Mobile Touch Controls Hook
+  const touchControls = useTouchControls({
+    sensitivity: settings.sensitivity,
+    playerSlot: localSlot,
+    isActive: isTouchDevice && isControlsActive,
+    assistPreset: settings.assistPreset,
+    handedness: settings.handedness,
+    onServeAction: () => {
+      network.sendServeAction();
+    },
+    onPauseToggle: () => {
+      network.sendPauseToggle();
+    }
+  });
+
+  const isLocked = isTouchDevice ? true : mouseControls.isLocked;
+  const smashCooldownRatio = isTouchDevice ? touchControls.smashCooldownRatio : mouseControls.smashCooldownRatio;
+  const paddlePos = isTouchDevice ? touchControls.paddlePos : mouseControls.paddlePos;
+  const requestLock = mouseControls.requestLock;
+  const exitLock = mouseControls.exitLock;
 
   // Connect to server on mount
   useEffect(() => {
@@ -175,26 +214,45 @@ export const App: React.FC = () => {
     return () => cancelAnimationFrame(animId);
   }, []);
 
-  // Auto-release pointer lock on game over, pause, lobby, or settings
+  // Auto-release pointer lock on game over, pause, lobby, settings, or chat open
   useEffect(() => {
     if (
       snapshot.phase === 'GAME_OVER' ||
       snapshot.phase === 'PAUSED' ||
       snapshot.phase === 'LOBBY' ||
-      isSettingsOpen
+      isSettingsOpen ||
+      isChatOpen
     ) {
       if (document.pointerLockElement) {
         document.exitPointerLock();
       }
     }
-  }, [snapshot.phase, isSettingsOpen]);
+  }, [snapshot.phase, isSettingsOpen, isChatOpen]);
+
+  // Global shortcut: Press Enter to open live chat on PC
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        const activeEl = document.activeElement;
+        const isInputActive = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+        if (!isInputActive && !isSettingsOpen) {
+          e.preventDefault();
+          exitLock();
+          setIsChatOpen(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isSettingsOpen, exitLock]);
 
   const handleCanvasClick = () => {
     if (
       snapshot.phase !== 'LOBBY' &&
       snapshot.phase !== 'PAUSED' &&
       snapshot.phase !== 'GAME_OVER' &&
-      !isSettingsOpen
+      !isSettingsOpen &&
+      !isChatOpen
     ) {
       requestLock(canvasContainerRef.current);
     }
@@ -202,6 +260,19 @@ export const App: React.FC = () => {
 
   return (
     <div className="arcade-viewport" ref={canvasContainerRef}>
+      {/* Landscape Orientation Prompt for Mobile */}
+      <OrientationLockPrompt />
+
+      {/* On-Screen Mobile Touch Controls Overlay */}
+      {isTouchDevice && isControlsActive && (
+        <MobileControlsOverlay
+          smashCooldownRatio={smashCooldownRatio}
+          onTriggerSmash={touchControls.triggerSmash}
+          onSetSlice={touchControls.setSlice}
+          onPauseToggle={() => network.sendPauseToggle()}
+          isPhaseServing={snapshot.phase === 'SERVING'}
+        />
+      )}
       {/* 3D Render Canvas */}
       <GameCanvas
         ball={snapshot.ball}
@@ -243,6 +314,7 @@ export const App: React.FC = () => {
           p1Name={roomState.p1Name}
           p2Name={roomState.p2Name}
           isPointerLocked={isLocked}
+          isMobile={isTouchDevice}
           gameMode={roomState.gameMode}
           practiceZone={roomState.practiceZone}
           onSelectPracticeZone={(zone) => network.setPracticeZone(zone)}
@@ -251,6 +323,20 @@ export const App: React.FC = () => {
           onQuitToLobby={() => network.sendQuitToLobby()}
         />
       )}
+
+      {/* In-Game & Lobby Live Chat */}
+      <InGameChat
+        localSlot={localSlot}
+        p1Name={roomState.p1Name}
+        p2Name={roomState.p2Name}
+        isMobile={isTouchDevice}
+        isOpen={isChatOpen}
+        onToggleOpen={(open) => {
+          if (open) exitLock();
+          setIsChatOpen(open);
+        }}
+        onInputFocus={() => exitLock()}
+      />
 
       {/* Lobby Screen */}
       {snapshot.phase === 'LOBBY' && (

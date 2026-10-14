@@ -7,7 +7,9 @@ import type {
   PlayerSlot,
   GameMode,
   BotDifficulty,
-  PracticeZone
+  PracticeZone,
+  ChatMessage,
+  TypingStatusMsg
 } from '@shared/types';
 import { soundFx } from '../audio/synth';
 
@@ -15,6 +17,8 @@ type SnapshotListener = (snapshot: SnapshotData) => void;
 type EventListener = (event: GameEventData) => void;
 type RoomStateListener = (state: RoomStateMsg) => void;
 type SlotListener = (slot: PlayerSlot) => void;
+type ChatListener = (message: ChatMessage) => void;
+type TypingListener = (status: TypingStatusMsg) => void;
 
 class SocketClient {
   private socket: Socket | null = null;
@@ -26,6 +30,8 @@ class SocketClient {
   private eventListeners: Set<EventListener> = new Set();
   private roomStateListeners: Set<RoomStateListener> = new Set();
   private slotListeners: Set<SlotListener> = new Set();
+  private chatListeners: Set<ChatListener> = new Set();
+  private typingListeners: Set<TypingListener> = new Set();
   private pingInterval: number | null = null;
 
   public connect(customServerUrl?: string) {
@@ -69,6 +75,15 @@ class SocketClient {
       const now = Date.now();
       const rtt = now - data.clientTime;
       this.ping = Math.round(rtt / 2);
+    });
+
+    this.socket.on('s2c_chat_message', (msg: ChatMessage) => {
+      soundFx.playChatBeep();
+      this.chatListeners.forEach((cb) => cb(msg));
+    });
+
+    this.socket.on('s2c_typing', (status: TypingStatusMsg) => {
+      this.typingListeners.forEach((cb) => cb(status));
     });
 
     this.socket.on('disconnect', () => {
@@ -169,6 +184,26 @@ class SocketClient {
   public onSlotAssigned(cb: SlotListener) {
     this.slotListeners.add(cb);
     return () => this.slotListeners.delete(cb);
+  }
+
+  public sendChatMessage(text: string, isQuickChat = false) {
+    const clean = text.trim();
+    if (!clean) return;
+    this.socket?.emit('c2s_chat_message', { text: clean, isQuickChat });
+  }
+
+  public sendTypingStatus(isTyping: boolean) {
+    this.socket?.emit('c2s_typing', { isTyping });
+  }
+
+  public onChatMessage(cb: ChatListener) {
+    this.chatListeners.add(cb);
+    return () => this.chatListeners.delete(cb);
+  }
+
+  public onTypingStatus(cb: TypingListener) {
+    this.typingListeners.add(cb);
+    return () => this.typingListeners.delete(cb);
   }
 }
 

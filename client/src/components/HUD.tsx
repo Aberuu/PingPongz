@@ -14,6 +14,7 @@ interface HUDProps {
   p1Name: string;
   p2Name: string;
   isPointerLocked: boolean;
+  isMobile?: boolean;
   onLockClick: () => void;
   onSettingsClick: () => void;
   onQuitToLobby?: () => void;
@@ -35,6 +36,7 @@ export const HUD: React.FC<HUDProps> = ({
   p1Name,
   p2Name,
   isPointerLocked,
+  isMobile = false,
   onLockClick,
   onSettingsClick,
   onQuitToLobby,
@@ -309,7 +311,7 @@ export const HUD: React.FC<HUDProps> = ({
           </div>
         )}
 
-        {!isPointerLocked && phase !== 'LOBBY' && phase !== 'GAME_OVER' && (
+        {!isMobile && !isPointerLocked && phase !== 'LOBBY' && phase !== 'GAME_OVER' && (
           <div style={{ pointerEvents: 'auto', marginTop: '12px' }}>
             <button
               className="pixel-btn btn-primary"
@@ -346,7 +348,7 @@ export const HUD: React.FC<HUDProps> = ({
               animation: 'fadeIn 0.2s ease'
             }}
           >
-            GILIRAN ANDA: GESER BOLA (MOUSE / A & D) | KLIK KIRI UNTUK SERVIS
+            {isMobile ? 'GILIRAN ANDA: GESER JARI UNTUK POSISI | KETUK UNTUK SERVIS' : 'GILIRAN ANDA: GESER BOLA (MOUSE / A & D) | KLIK KIRI UNTUK SERVIS'}
           </div>
         )}
 
@@ -361,7 +363,7 @@ export const HUD: React.FC<HUDProps> = ({
               color: '#93c5fd'
             }}
           >
-            PETUNJUK: Gerakkan mouse untuk menggeser posisi raket
+            {isMobile ? 'PETUNJUK: Geser jari di layar untuk menggerakkan raket' : 'PETUNJUK: Gerakkan mouse untuk menggeser posisi raket'}
           </div>
         )}
 
@@ -411,7 +413,7 @@ export const HUD: React.FC<HUDProps> = ({
           </div>
 
           {/* Esc Pause Hint (Only shown if unlocked or during initial 5 seconds) */}
-          {(showEscHint || !isPointerLocked) && (
+          {!isMobile && (showEscHint || !isPointerLocked) && (
             <div
               style={{
                 backgroundColor: 'rgba(15, 18, 23, 0.75)',

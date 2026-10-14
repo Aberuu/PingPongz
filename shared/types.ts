@@ -143,3 +143,17 @@ export interface RoomStateMsg {
   p1Rematch?: boolean;
   p2Rematch?: boolean;
 }
+
+export interface ChatMessage {
+  id: string;
+  senderSlot: PlayerSlot | 'system' | 'bot';
+  senderName: string;
+  text: string;
+  timestamp: number;
+  isQuickChat?: boolean;
+}
+
+export interface TypingStatusMsg {
+  senderSlot: PlayerSlot;
+  isTyping: boolean;
+}
