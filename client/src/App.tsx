@@ -175,8 +175,27 @@ export const App: React.FC = () => {
     return () => cancelAnimationFrame(animId);
   }, []);
 
+  // Auto-release pointer lock on game over, pause, lobby, or settings
+  useEffect(() => {
+    if (
+      snapshot.phase === 'GAME_OVER' ||
+      snapshot.phase === 'PAUSED' ||
+      snapshot.phase === 'LOBBY' ||
+      isSettingsOpen
+    ) {
+      if (document.pointerLockElement) {
+        document.exitPointerLock();
+      }
+    }
+  }, [snapshot.phase, isSettingsOpen]);
+
   const handleCanvasClick = () => {
-    if (snapshot.phase !== 'LOBBY' && snapshot.phase !== 'PAUSED' && !isSettingsOpen) {
+    if (
+      snapshot.phase !== 'LOBBY' &&
+      snapshot.phase !== 'PAUSED' &&
+      snapshot.phase !== 'GAME_OVER' &&
+      !isSettingsOpen
+    ) {
       requestLock(canvasContainerRef.current);
     }
   };

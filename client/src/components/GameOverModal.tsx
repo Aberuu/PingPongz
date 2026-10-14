@@ -34,6 +34,13 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   const isP2AiOrMachine = gameMode === 'bot' || gameMode === 'practice';
   const [localReadyOverride, setLocalReadyOverride] = useState<boolean | null>(null);
 
+  // Ensure pointer lock is instantly released so player has full cursor control
+  useEffect(() => {
+    if (document.pointerLockElement) {
+      document.exitPointerLock();
+    }
+  }, []);
+
   useEffect(() => {
     setLocalReadyOverride(null);
   }, [p1Rematch, p2Rematch]);
