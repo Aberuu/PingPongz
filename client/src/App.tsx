@@ -152,12 +152,28 @@ export const App: React.FC = () => {
   useEffect(() => {
     network.connect();
 
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const roomParam = urlParams?.get('room')?.trim().toUpperCase();
+
+    if (roomParam) {
+      network.joinRoom('Pemain 2', undefined, roomParam);
+    } else {
+      network.createRoom('Pemain 1');
+    }
+
     const unsubSlot = network.onSlotAssigned((slot) => {
       setLocalSlot(slot);
     });
 
     const unsubRoom = network.onRoomState((st) => {
       setRoomState(st);
+      if (st.roomId && typeof window !== 'undefined') {
+        const currentUrl = new URL(window.location.href);
+        if (currentUrl.searchParams.get('room') !== st.roomId) {
+          currentUrl.searchParams.set('room', st.roomId);
+          window.history.replaceState({}, '', currentUrl.toString());
+        }
+      }
     });
 
     const unsubSnap = network.onSnapshot((snap) => {

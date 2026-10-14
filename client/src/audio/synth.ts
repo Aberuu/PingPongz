@@ -257,6 +257,58 @@ class ArcadeAudioSystem {
       t += note.d;
     });
   }
+
+  // Table tennis rule announcement fanfare
+  public playAnnouncementSound(type: 'DEUCE' | 'MATCH_POINT' | 'CHANGE_SERVE' | 'LET') {
+    this.ensureContext();
+    if (!this.ctx || !this.masterGain || this.isMuted) return;
+
+    const now = this.ctx.currentTime;
+    let melody: { f: number; d: number }[] = [];
+
+    if (type === 'DEUCE') {
+      melody = [
+        { f: 440.0, d: 0.09 },
+        { f: 370.0, d: 0.09 },
+        { f: 554.37, d: 0.22 }
+      ];
+    } else if (type === 'MATCH_POINT') {
+      melody = [
+        { f: 659.25, d: 0.08 },
+        { f: 880.0, d: 0.08 },
+        { f: 1046.5, d: 0.25 }
+      ];
+    } else if (type === 'CHANGE_SERVE') {
+      melody = [
+        { f: 587.33, d: 0.06 },
+        { f: 739.99, d: 0.12 }
+      ];
+    } else {
+      melody = [
+        { f: 392.0, d: 0.08 },
+        { f: 330.0, d: 0.14 }
+      ];
+    }
+
+    let t = now;
+    melody.forEach((note) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(note.f, t);
+
+      gain.gain.setValueAtTime(0.32, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + note.d);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+
+      osc.start(t);
+      osc.stop(t + note.d + 0.01);
+      t += note.d * 0.9;
+    });
+  }
 }
 
 export const soundFx = new ArcadeAudioSystem();

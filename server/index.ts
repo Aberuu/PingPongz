@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { getLocalIpAddresses } from './networkUtils.js';
 import { GameRoom } from './gameRoom.js';
+import { RoomManager } from './roomManager.js';
 import type { ClientInputMsg, PlayerSlot, GameMode, BotDifficulty, PracticeZone } from '../shared/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -40,75 +41,100 @@ if (staticPath) {
   });
 }
 
-const gameRoom = new GameRoom(io);
+const roomManager = new RoomManager(io);
 const localIps = getLocalIpAddresses();
 const primaryHostIp = localIps[0] || '127.0.0.1';
 // On cloud hosts (e.g. Railway) use the public domain instead of the internal container IP
 const publicDomain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
 const hostUrl = publicDomain ? `https://${publicDomain}` : `http://${primaryHostIp}:${PORT}`;
-gameRoom.hostAddress = hostUrl;
 
 io.on('connection', (socket) => {
-  // Immediately emit current room state
-  socket.emit('s2c_room_state', gameRoom.getRoomState(hostUrl));
+  // Join or create room with specified Room Code
+  socket.on('c2s_join_room', (data: { playerName: string; roomId?: string; slot?: PlayerSlot }) => {
+    const currentRoom = roomManager.getRoomForSocket(socket);
+    const targetRoomId = data?.roomId || currentRoom?.roomId || 'MAIN';
+    const room = roomManager.getOrCreateRoom(targetRoomId);
+    room.hostAddress = hostUrl;
+    roomManager.joinSocketToRoom(socket, room);
+    room.handleJoin(socket, data.playerName, data.slot, hostUrl);
+  });
 
-  // Automatically assign slot (P1 or P2)
-  const assignedSlot = gameRoom.autoAssignSlotOnConnect(socket);
-  socket.emit('s2c_assigned_slot', { slot: assignedSlot });
-  gameRoom.broadcastRoomState(hostUrl);
+  // Explicitly create a new private room with generated room code
+  socket.on('c2s_create_room', (data: { playerName: string; gameMode?: GameMode }) => {
+    const room = roomManager.getOrCreateRoom();
+    room.hostAddress = hostUrl;
+    if (data?.gameMode) room.gameMode = data.gameMode;
+    roomManager.joinSocketToRoom(socket, room);
+    room.handleJoin(socket, data.playerName, 'p1', hostUrl);
+    socket.emit('s2c_room_created', { roomId: room.roomId });
+  });
 
-  // Join room
-  socket.on('c2s_join_room', (data: { playerName: string; slot?: PlayerSlot }) => {
-    gameRoom.handleJoin(socket, data.playerName, data.slot, hostUrl);
+  // Quick match: find waiting room or create new
+  socket.on('c2s_quick_match', (data: { playerName: string }) => {
+    const room = roomManager.findQuickMatch();
+    room.hostAddress = hostUrl;
+    roomManager.joinSocketToRoom(socket, room);
+    const slot: PlayerSlot = room.p1 ? 'p2' : 'p1';
+    room.handleJoin(socket, data.playerName, slot, hostUrl);
   });
 
   // Ready toggle
   socket.on('c2s_ready', (data: { ready: boolean }) => {
-    gameRoom.handleReady(socket, data.ready, hostUrl);
+    const room = roomManager.getRoomForSocket(socket);
+    room?.handleReady(socket, data.ready, hostUrl);
   });
 
   // Game Mode & AI / Practice Configuration
   socket.on('c2s_set_mode', (data: { mode: GameMode; botDifficulty?: BotDifficulty; practiceZone?: PracticeZone }) => {
-    gameRoom.handleSetMode(data.mode, data.botDifficulty, data.practiceZone, hostUrl);
+    const room = roomManager.getRoomForSocket(socket);
+    room?.handleSetMode(data.mode, data.botDifficulty, data.practiceZone, hostUrl);
   });
 
   socket.on('c2s_set_practice_zone', (data: { zone: PracticeZone }) => {
-    gameRoom.handleSetPracticeZone(data.zone, hostUrl);
+    const room = roomManager.getRoomForSocket(socket);
+    room?.handleSetPracticeZone(data.zone, hostUrl);
   });
 
   // High-frequency volatile player input (60Hz)
   socket.on('c2s_input', (input: ClientInputMsg) => {
-    gameRoom.handleInput(socket, input);
+    const room = roomManager.getRoomForSocket(socket);
+    room?.handleInput(socket, input);
   });
 
   // Serve action (toss ball)
   socket.on('c2s_serve_action', () => {
-    gameRoom.handleServeAction(socket);
+    const room = roomManager.getRoomForSocket(socket);
+    room?.handleServeAction(socket);
   });
 
   // Pause toggle (Esc)
   socket.on('c2s_pause_toggle', () => {
-    gameRoom.handlePauseToggle(socket);
+    const room = roomManager.getRoomForSocket(socket);
+    room?.handlePauseToggle(socket);
   });
 
   // Rematch request
   socket.on('c2s_rematch', (data?: { slot?: PlayerSlot }) => {
-    gameRoom.handleRematch(socket, data, hostUrl);
+    const room = roomManager.getRoomForSocket(socket);
+    room?.handleRematch(socket, data, hostUrl);
   });
 
   // Quit back to lobby request
   socket.on('c2s_quit_to_lobby', () => {
-    gameRoom.handleQuitToLobby(hostUrl);
+    const room = roomManager.getRoomForSocket(socket);
+    room?.handleQuitToLobby(hostUrl);
   });
 
   // Live in-game chat message
   socket.on('c2s_chat_message', (data: { text: string; isQuickChat?: boolean }) => {
-    gameRoom.handleChatMessage(socket, data);
+    const room = roomManager.getRoomForSocket(socket);
+    room?.handleChatMessage(socket, data);
   });
 
   // Typing status indicator
   socket.on('c2s_typing', (data: { isTyping: boolean }) => {
-    gameRoom.handleTypingStatus(socket, data?.isTyping);
+    const room = roomManager.getRoomForSocket(socket);
+    room?.handleTypingStatus(socket, data?.isTyping);
   });
 
   // Low-latency clock sync & ping
@@ -120,7 +146,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    gameRoom.handleDisconnect(socket, hostUrl);
+    const room = roomManager.getRoomForSocket(socket);
+    if (room) {
+      room.handleDisconnect(socket, hostUrl);
+    }
+    roomManager.leaveRoom(socket);
   });
 });
 

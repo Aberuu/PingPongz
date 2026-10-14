@@ -98,7 +98,23 @@ export type GameEventType =
   | 'POINT'
   | 'LET'
   | 'SERVE_START'
-  | 'MATCH_OVER';
+  | 'MATCH_OVER'
+  | 'RULE_ANNOUNCEMENT';
+
+export type RuleAnnouncementType =
+  | 'DEUCE'
+  | 'MATCH_POINT'
+  | 'CHANGE_SERVE'
+  | 'LET';
+
+export interface RuleAnnouncement {
+  id: string;
+  type: RuleAnnouncementType;
+  title: string;
+  subtitle: string;
+  player?: PlayerSlot;
+  timestamp: number;
+}
 
 export interface GameEventData {
   type: GameEventType;
@@ -111,6 +127,7 @@ export interface GameEventData {
     isSweetSpot?: boolean;
     reason?: string;
     score?: ScoreState;
+    announcement?: RuleAnnouncement;
   };
 }
 
@@ -130,6 +147,7 @@ export interface ClientInputMsg {
 }
 
 export interface RoomStateMsg {
+  roomId?: string;
   p1Connected: boolean;
   p2Connected: boolean;
   p1Ready: boolean;

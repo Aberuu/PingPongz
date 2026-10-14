@@ -36,9 +36,10 @@ describe('PRD 3.0 Practice Mode & AI Bot System', () => {
   });
 
   it('verifies GameRoom mode switching and bot automated readiness', () => {
-    // Mock socket.io server
+    // Mock socket.io server with room scoping support
     const mockIo: any = {
-      emit: () => {}
+      emit: () => {},
+      to: () => mockIo
     };
 
     const room = new GameRoom(mockIo);
@@ -61,7 +62,8 @@ describe('PRD 3.0 Practice Mode & AI Bot System', () => {
 
   it('ensures practice mode ball machine feeds balls to selected zones', () => {
     const mockIo: any = {
-      emit: () => {}
+      emit: () => {},
+      to: () => mockIo
     };
 
     const room = new GameRoom(mockIo);

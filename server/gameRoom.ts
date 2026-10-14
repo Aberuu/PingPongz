@@ -30,6 +30,7 @@ import {
   checkMatchWinner,
   determineServer,
   createInitialRallyState,
+  detectRuleAnnouncement,
   type RallyState
 } from '../shared/rules.js';
 import { stepBallPhysics, clamp } from './physics.js';
@@ -132,15 +133,18 @@ export class GameRoom {
   private botSwingTimer = 0;
   private botServeTimer = 0;
   private currentRallyShots = 0;
+  public roomId: string;
 
-  constructor(io: Server) {
+  constructor(io: Server, roomId = 'MAIN') {
     this.io = io;
+    this.roomId = roomId.trim().toUpperCase();
     this.startSimulationLoop();
   }
 
   public getRoomState(hostAddress = this.hostAddress): RoomStateMsg {
     const finalHost = hostAddress || this.hostAddress;
     return {
+      roomId: this.roomId,
       p1Connected: !!this.p1,
       p2Connected: !!this.p2,
       p1Ready: !!this.p1?.ready,
@@ -158,7 +162,7 @@ export class GameRoom {
 
   public broadcastRoomState(hostAddress = this.hostAddress) {
     if (hostAddress) this.hostAddress = hostAddress;
-    this.io.emit('s2c_room_state', this.getRoomState(this.hostAddress));
+    this.io.to(this.roomId).emit('s2c_room_state', this.getRoomState(this.hostAddress));
   }
 
   public handleSetMode(mode: GameMode, botDifficulty?: BotDifficulty, practiceZone?: PracticeZone, hostAddress = '') {
@@ -466,7 +470,7 @@ export class GameRoom {
       isQuickChat: Boolean(data.isQuickChat)
     };
 
-    this.io.emit('s2c_chat_message', chatMsg);
+    this.io.to(this.roomId).emit('s2c_chat_message', chatMsg);
 
     if (this.gameMode === 'bot' && senderSlot === 'p1') {
       this.triggerBotChatResponse(cleanText);
@@ -486,7 +490,7 @@ export class GameRoom {
         senderSlot,
         isTyping: Boolean(isTyping)
       };
-      socket.broadcast.emit('s2c_typing', msg);
+      socket.to(this.roomId).emit('s2c_typing', msg);
     }
   }
 
@@ -521,7 +525,7 @@ export class GameRoom {
           timestamp: Date.now(),
           isQuickChat: false
         };
-        this.io.emit('s2c_chat_message', botMsg);
+        this.io.to(this.roomId).emit('s2c_chat_message', botMsg);
       }, 700 + Math.random() * 800);
     }
   }
@@ -762,6 +766,7 @@ export class GameRoom {
       return;
     }
 
+    const prevScore = { ...this.score };
     if (winner === 'p1') this.score.p1 += 1;
     else this.score.p2 += 1;
 
@@ -785,6 +790,21 @@ export class GameRoom {
         score: { ...this.score }
       }
     });
+
+    // Check for Table Tennis Rule Announcements (DEUCE, MATCH POINT / ADVANTAGE)
+    const announcement = detectRuleAnnouncement(
+      prevScore,
+      this.score,
+      this.p1?.name || 'Pemain 1',
+      this.p2?.name || (this.gameMode === 'bot' ? 'VoxelBot' : 'Pemain 2')
+    );
+
+    if (announcement) {
+      this.emitEvent({
+        type: 'RULE_ANNOUNCEMENT',
+        payload: { announcement }
+      });
+    }
 
     const matchWinner = checkMatchWinner(this.score);
     if (matchWinner) {
@@ -810,12 +830,30 @@ export class GameRoom {
       return;
     }
 
-    // Determine next server
+    // Determine next server & announce serve rotation if changed
+    const previousServer = this.currentServer;
     this.currentServer = determineServer(this.initialServer, this.score);
+
+    if (previousServer !== this.currentServer && !announcement) {
+      const nextServerName = this.currentServer === 'p1' ? (this.p1?.name || 'Pemain 1') : (this.p2?.name || (this.gameMode === 'bot' ? 'VoxelBot' : 'Pemain 2'));
+      this.emitEvent({
+        type: 'RULE_ANNOUNCEMENT',
+        payload: {
+          announcement: {
+            id: `${Date.now()}-serve`,
+            type: 'CHANGE_SERVE',
+            title: 'GANTI SERVIS!',
+            subtitle: `Giliran servis berpindah ke ${nextServerName}.`,
+            player: this.currentServer,
+            timestamp: Date.now()
+          }
+        }
+      });
+    }
   }
 
   private emitEvent(event: GameEventData) {
-    this.io.emit('s2c_event', event);
+    this.io.to(this.roomId).emit('s2c_event', event);
   }
 
   private startSimulationLoop() {
@@ -1046,6 +1084,17 @@ export class GameRoom {
       this.replayBuffer.shift();
     }
 
-    this.io.emit('s2c_snapshot', snapshot);
+    this.io.to(this.roomId).emit('s2c_snapshot', snapshot);
+  }
+
+  public destroy() {
+    if (this.loopTimer) {
+      clearInterval(this.loopTimer);
+      this.loopTimer = null;
+    }
+    if (this.disconnectInterval) {
+      clearInterval(this.disconnectInterval);
+      this.disconnectInterval = null;
+    }
   }
 }

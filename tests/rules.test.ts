@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { checkMatchWinner, isDeuce, determineServer, createInitialRallyState } from '../shared/rules.js';
+import {
+  checkMatchWinner,
+  isDeuce,
+  determineServer,
+  createInitialRallyState,
+  detectRuleAnnouncement
+} from '../shared/rules.js';
 
 describe('Table Tennis Scoring Rules', () => {
   it('identifies winner when reaching 11 with 2+ lead', () => {
@@ -47,5 +53,44 @@ describe('Table Tennis Scoring Rules', () => {
     expect(rally.servePhase).toBe('WAITING_FOR_HIT');
     expect(rally.bouncesOnSide.p1).toBe(0);
     expect(rally.bouncesOnSide.p2).toBe(0);
+  });
+
+  describe('detectRuleAnnouncement', () => {
+    it('detects deuce when score reaches 10-10', () => {
+      const ann = detectRuleAnnouncement({ p1: 10, p2: 9 }, { p1: 10, p2: 10 }, 'Alice', 'Bob');
+      expect(ann).not.toBeNull();
+      expect(ann?.type).toBe('DEUCE');
+      expect(ann?.title).toBe('DEUCE!');
+    });
+
+    it('detects return to deuce when score reaches 11-11', () => {
+      const ann = detectRuleAnnouncement({ p1: 11, p2: 10 }, { p1: 11, p2: 11 }, 'Alice', 'Bob');
+      expect(ann).not.toBeNull();
+      expect(ann?.type).toBe('DEUCE');
+      expect(ann?.title).toContain('DEUCE');
+    });
+
+    it('detects match point in regular play (10-8)', () => {
+      const ann = detectRuleAnnouncement({ p1: 9, p2: 8 }, { p1: 10, p2: 8 }, 'Alice', 'Bob');
+      expect(ann).not.toBeNull();
+      expect(ann?.type).toBe('MATCH_POINT');
+      expect(ann?.player).toBe('p1');
+      expect(ann?.title).toContain('MATCH POINT');
+      expect(ann?.title).toContain('ALICE');
+    });
+
+    it('detects advantage in deuce (11-10)', () => {
+      const ann = detectRuleAnnouncement({ p1: 10, p2: 10 }, { p1: 11, p2: 10 }, 'Alice', 'Bob');
+      expect(ann).not.toBeNull();
+      expect(ann?.type).toBe('MATCH_POINT');
+      expect(ann?.player).toBe('p1');
+      expect(ann?.title).toContain('ADVANTAGE');
+      expect(ann?.title).toContain('ALICE');
+    });
+
+    it('returns null for non-critical scores', () => {
+      const ann = detectRuleAnnouncement({ p1: 4, p2: 3 }, { p1: 5, p2: 3 }, 'Alice', 'Bob');
+      expect(ann).toBeNull();
+    });
   });
 });

@@ -11,7 +11,8 @@ describe('In-Game Live Chat & Free-Text Typing System', () => {
       emit: (evt: string, data: any) => {
         emittedEvent = evt;
         emittedData = data;
-      }
+      },
+      to: () => mockIo
     };
 
     const room = new GameRoom(mockIo);
@@ -43,7 +44,8 @@ describe('In-Game Live Chat & Free-Text Typing System', () => {
 
   it('rejects empty or whitespace-only messages', () => {
     const mockIo: any = {
-      emit: vi.fn()
+      emit: vi.fn(),
+      to: () => mockIo
     };
 
     const room = new GameRoom(mockIo);
@@ -68,7 +70,8 @@ describe('In-Game Live Chat & Free-Text Typing System', () => {
     const mockIo: any = {
       emit: (_evt: string, data: any) => {
         capturedMsg = data;
-      }
+      },
+      to: () => mockIo
     };
 
     const room = new GameRoom(mockIo);
@@ -93,7 +96,7 @@ describe('In-Game Live Chat & Free-Text Typing System', () => {
     let broadcastEvt = '';
     let broadcastData: TypingStatusMsg | null = null;
 
-    const mockBroadcast: any = {
+    const mockBroadcaster: any = {
       emit: (evt: string, data: any) => {
         broadcastEvt = evt;
         broadcastData = data;
@@ -102,10 +105,14 @@ describe('In-Game Live Chat & Free-Text Typing System', () => {
 
     const mockSocketP2: any = {
       id: 'socket-p2',
-      broadcast: mockBroadcast
+      to: () => mockBroadcaster,
+      broadcast: mockBroadcaster
     };
 
-    const mockIo: any = { emit: () => {} };
+    const mockIo: any = {
+      emit: () => {},
+      to: () => mockIo
+    };
     const room = new GameRoom(mockIo);
     room.p2 = {
       id: 'socket-p2',

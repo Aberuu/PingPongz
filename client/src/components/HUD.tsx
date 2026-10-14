@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import type { ScoreState, PlayerSlot, GamePhase, GameMode, PracticeZone } from '@shared/types';
+import React, { useState, useEffect, useRef } from 'react';
+import type { ScoreState, PlayerSlot, GamePhase, GameMode, PracticeZone, RuleAnnouncement } from '@shared/types';
+import { network } from '../network/socketClient';
 
 interface HUDProps {
   score: ScoreState;
@@ -53,8 +54,34 @@ export const HUD: React.FC<HUDProps> = ({
   // Service prompt auto-fade
   const [servePromptVisible, setServePromptVisible] = useState(true);
 
+  // Table Tennis Rule Announcement state (DEUCE, MATCH POINT, CHANGE SERVE, LET)
+  const [activeAnnouncement, setActiveAnnouncement] = useState<RuleAnnouncement | null>(null);
+  const announcementTimerRef = useRef<number | null>(null);
+
   // Contextual onboarding hints
   const [tutorialStep, setTutorialStep] = useState<number>(0);
+
+  // Listen to in-game rule announcements
+  useEffect(() => {
+    const unsub = network.onEvent((event) => {
+      if (event.type === 'RULE_ANNOUNCEMENT' && event.payload?.announcement) {
+        setActiveAnnouncement(event.payload.announcement);
+        if (announcementTimerRef.current) {
+          window.clearTimeout(announcementTimerRef.current);
+        }
+        announcementTimerRef.current = window.setTimeout(() => {
+          setActiveAnnouncement((curr) => (curr?.id === event.payload?.announcement?.id ? null : curr));
+          announcementTimerRef.current = null;
+        }, 3400);
+      }
+    });
+    return () => {
+      if (announcementTimerRef.current) {
+        window.clearTimeout(announcementTimerRef.current);
+      }
+      unsub();
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -277,6 +304,69 @@ export const HUD: React.FC<HUDProps> = ({
           gap: '12px'
         }}
       >
+        {/* Table Tennis Rule Announcement Banner */}
+        {activeAnnouncement && (
+          <div
+            className="rule-announcement-banner"
+            style={{
+              backgroundColor: 'rgba(10, 13, 20, 0.94)',
+              border: `3px solid ${
+                activeAnnouncement.type === 'DEUCE'
+                  ? '#ffb300'
+                  : activeAnnouncement.type === 'MATCH_POINT'
+                  ? '#ff3d00'
+                  : activeAnnouncement.type === 'CHANGE_SERVE'
+                  ? '#00e5ff'
+                  : '#00e676'
+              }`,
+              boxShadow: `0 0 24px ${
+                activeAnnouncement.type === 'DEUCE'
+                  ? 'rgba(255, 179, 0, 0.5)'
+                  : activeAnnouncement.type === 'MATCH_POINT'
+                  ? 'rgba(255, 61, 0, 0.5)'
+                  : activeAnnouncement.type === 'CHANGE_SERVE'
+                  ? 'rgba(0, 229, 255, 0.4)'
+                  : 'rgba(0, 230, 118, 0.4)'
+              }`,
+              padding: isMobile ? '10px 16px' : '14px 28px',
+              textAlign: 'center',
+              maxWidth: isMobile ? '90vw' : '480px',
+              animation: 'fadeBubble 0.2s ease-out'
+            }}
+          >
+            <div
+              style={{
+                fontSize: isMobile ? '12px' : '16px',
+                color:
+                  activeAnnouncement.type === 'DEUCE'
+                    ? '#ffb300'
+                    : activeAnnouncement.type === 'MATCH_POINT'
+                    ? '#ff3d00'
+                    : activeAnnouncement.type === 'CHANGE_SERVE'
+                    ? '#00e5ff'
+                    : '#00e676',
+                fontWeight: 'bold',
+                letterSpacing: '1px',
+                marginBottom: '6px',
+                textShadow: '2px 2px 0px #000000'
+              }}
+            >
+              {activeAnnouncement.title}
+            </div>
+            {activeAnnouncement.subtitle && (
+              <div
+                style={{
+                  fontSize: isMobile ? '8px' : '10px',
+                  color: '#f0f4f8',
+                  lineHeight: '1.4'
+                }}
+              >
+                {activeAnnouncement.subtitle}
+              </div>
+            )}
+          </div>
+        )}
+
         {phase === 'COUNTDOWN' && (
           <div
             style={{

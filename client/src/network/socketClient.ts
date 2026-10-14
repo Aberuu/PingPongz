@@ -117,6 +117,11 @@ class SocketClient {
       case 'MATCH_OVER':
         soundFx.playVictoryJingle();
         break;
+      case 'RULE_ANNOUNCEMENT':
+        if (event.payload?.announcement) {
+          soundFx.playAnnouncementSound(event.payload.announcement.type);
+        }
+        break;
     }
   }
 
@@ -129,8 +134,16 @@ class SocketClient {
     }, 1000);
   }
 
-  public joinRoom(playerName: string, preferredSlot?: PlayerSlot) {
-    this.socket?.emit('c2s_join_room', { playerName, slot: preferredSlot });
+  public joinRoom(playerName: string, preferredSlot?: PlayerSlot, roomId?: string) {
+    this.socket?.emit('c2s_join_room', { playerName, slot: preferredSlot, roomId });
+  }
+
+  public createRoom(playerName: string, gameMode?: GameMode) {
+    this.socket?.emit('c2s_create_room', { playerName, gameMode });
+  }
+
+  public quickMatch(playerName: string) {
+    this.socket?.emit('c2s_quick_match', { playerName });
   }
 
   public setReady(ready: boolean) {

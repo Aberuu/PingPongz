@@ -14,11 +14,24 @@ export const Lobby: React.FC<LobbyProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'host' | 'join'>(localSlot === 'p1' ? 'host' : 'join');
   const [playerName, setPlayerName] = useState(localSlot === 'p1' ? 'Pemain 1' : 'Pemain 2');
+  const [inputRoomCode, setInputRoomCode] = useState('');
+  const [showAdvancedIp, setShowAdvancedIp] = useState(false);
   const [guestHostIp, setGuestHostIp] = useState(
     typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
   );
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomParam = urlParams.get('room');
+      if (roomParam) {
+        setInputRoomCode(roomParam.toUpperCase());
+        setActiveTab('join');
+      }
+    }
+  }, []);
 
   useEffect(() => {
     setActiveTab(localSlot === 'p1' ? 'host' : 'join');
@@ -32,7 +45,8 @@ export const Lobby: React.FC<LobbyProps> = ({
   }, [localSlot, roomState.p1Ready, roomState.p2Ready, roomState.p1Name, roomState.p2Name]);
 
   const isHost = localSlot === 'p1';
-  const shareAddress = roomState.hostAddress || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+  const baseUrl = roomState.hostAddress || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+  const shareAddress = roomState.roomId ? `${baseUrl}/?room=${roomState.roomId}` : baseUrl;
 
   const handleCopyAddress = () => {
     navigator.clipboard.writeText(shareAddress).then(() => {
@@ -49,12 +63,26 @@ export const Lobby: React.FC<LobbyProps> = ({
 
   const handleNameChange = (val: string) => {
     setPlayerName(val);
-    network.joinRoom(val, activeTab === 'host' ? 'p1' : 'p2');
+    network.joinRoom(val, activeTab === 'host' ? 'p1' : 'p2', roomState.roomId);
+  };
+
+  const handleCreateNewRoom = () => {
+    network.createRoom(playerName, roomState.gameMode);
+  };
+
+  const handleJoinWithCode = () => {
+    const code = (inputRoomCode || '').trim().toUpperCase();
+    if (!code) return;
+    network.joinRoom(playerName, 'p2', code);
+  };
+
+  const handleQuickMatch = () => {
+    network.quickMatch(playerName);
   };
 
   const handleConnectGuest = () => {
     network.connect(guestHostIp);
-    network.joinRoom(playerName, 'p2');
+    network.joinRoom(playerName, 'p2', inputRoomCode);
   };
 
   return (
@@ -97,7 +125,7 @@ export const Lobby: React.FC<LobbyProps> = ({
             className={`pixel-btn ${activeTab === 'host' ? 'btn-primary' : ''}`}
             onClick={() => {
               setActiveTab('host');
-              network.joinRoom(playerName, 'p1');
+              network.joinRoom(playerName, 'p1', roomState.roomId);
             }}
             style={{ flex: 1, fontSize: '11px' }}
           >
@@ -107,7 +135,7 @@ export const Lobby: React.FC<LobbyProps> = ({
             className={`pixel-btn ${activeTab === 'join' ? 'btn-primary' : ''}`}
             onClick={() => {
               setActiveTab('join');
-              network.joinRoom(playerName, 'p2');
+              network.joinRoom(playerName, 'p2', roomState.roomId);
             }}
             style={{ flex: 1, fontSize: '11px' }}
           >
@@ -173,7 +201,7 @@ export const Lobby: React.FC<LobbyProps> = ({
               </div>
             )}
 
-            {/* Share Address Card (Only needed in LAN mode) */}
+            {/* Share Room Code & Link */}
             {(roomState.gameMode ?? 'match') === 'match' && (
               <div
                 style={{
@@ -182,39 +210,54 @@ export const Lobby: React.FC<LobbyProps> = ({
                   padding: '14px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '8px'
+                  gap: '10px'
                 }}
               >
-                <div style={{ fontSize: '10px', color: '#8c96a5' }}>
-                  ALAMAT LAN UNTUK LAWAN:
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '10px', color: '#8c96a5' }}>KODE KAMAR ANDA:</span>
+                  <button
+                    className="pixel-btn"
+                    onClick={handleCreateNewRoom}
+                    style={{ fontSize: '8px', padding: '4px 8px' }}
+                    title="Buat kamar baru dengan kode acak"
+                  >
+                    + BUAT KODE BARU
+                  </button>
                 </div>
+
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: '8px'
+                    gap: '10px',
+                    backgroundColor: '#0a0d14',
+                    border: '1px solid #3d495c',
+                    padding: '8px 12px'
                   }}
                 >
                   <div
                     style={{
-                      fontSize: '13px',
+                      fontSize: '22px',
                       color: '#ffb300',
-                      wordBreak: 'break-all'
+                      letterSpacing: '2px',
+                      fontWeight: 'bold',
+                      textShadow: '0 0 10px rgba(255, 179, 0, 0.4)'
                     }}
                   >
-                    {shareAddress}
+                    {roomState.roomId || 'MAIN'}
                   </div>
                   <button
-                    className="pixel-btn"
+                    className="pixel-btn btn-primary"
                     onClick={handleCopyAddress}
                     style={{ fontSize: '10px', padding: '8px 12px', whiteSpace: 'nowrap' }}
                   >
-                    {copyFeedback ? 'TERSALIN!' : 'SALIN'}
+                    {copyFeedback ? 'LINK TERSALIN!' : '📋 SALIN LINK'}
                   </button>
                 </div>
-                <div style={{ fontSize: '8px', color: '#687385' }}>
-                  Bagikan alamat ini ke PC lawan di Wi-Fi / LAN yang sama.
+
+                <div style={{ fontSize: '8px', color: '#687385', lineHeight: '1.4' }}>
+                  Bagikan kode kamar ini atau salin link undangan untuk bermain bersama teman.
                 </div>
               </div>
             )}
@@ -283,26 +326,52 @@ export const Lobby: React.FC<LobbyProps> = ({
         {/* JOIN PANEL */}
         {activeTab === 'join' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Host Address Input */}
+            {/* Room Code Input */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '10px', color: '#8c96a5' }}>ALAMAT SERVER HOST:</label>
+              <label style={{ fontSize: '10px', color: '#8c96a5' }}>MASUKKAN KODE KAMAR (5-6 KARAKTER):</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   type="text"
                   className="pixel-input"
-                  value={guestHostIp}
-                  style={{ flex: 1 }}
-                  placeholder="http://192.168.1.x:3000"
-                  onChange={(e) => setGuestHostIp(e.target.value)}
+                  value={inputRoomCode}
+                  style={{ flex: 1, letterSpacing: '2px', fontWeight: 'bold', textTransform: 'uppercase' }}
+                  placeholder="CONTOH: VX88"
+                  maxLength={10}
+                  onChange={(e) => setInputRoomCode(e.target.value.toUpperCase())}
                 />
                 <button
-                  className="pixel-btn"
-                  onClick={handleConnectGuest}
-                  style={{ fontSize: '10px', padding: '8px 12px' }}
+                  className="pixel-btn btn-primary"
+                  onClick={handleJoinWithCode}
+                  disabled={!inputRoomCode.trim()}
+                  style={{ fontSize: '10px', padding: '8px 14px' }}
                 >
-                  HUBUNGKAN
+                  GABUNG KAMAR
                 </button>
               </div>
+            </div>
+
+            {/* Quick Match Option */}
+            <div
+              style={{
+                backgroundColor: '#10131a',
+                border: '2px solid #2e3644',
+                padding: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px'
+              }}
+            >
+              <div style={{ fontSize: '9px', color: '#8c96a5' }}>
+                Tidak punya kode kamar? Cari lawan online acak:
+              </div>
+              <button
+                className="pixel-btn"
+                onClick={handleQuickMatch}
+                style={{ fontSize: '9px', padding: '8px 12px', whiteSpace: 'nowrap', backgroundColor: '#1a2332' }}
+              >
+                ⚡ CARI LAWAN
+              </button>
             </div>
 
             {/* Player Name */}
@@ -328,9 +397,9 @@ export const Lobby: React.FC<LobbyProps> = ({
                 fontSize: '11px'
               }}
             >
-              <span style={{ color: '#1976d2' }}>STATUS TAMU:</span>
-              <span style={{ color: roomState.p2Connected ? '#4caf50' : '#e53935' }}>
-                {roomState.p2Connected ? 'TERHUBUNG KE SERVER' : 'BELUM TERHUBUNG'}
+              <span style={{ color: '#1976d2' }}>KAMAR TERHUBUNG:</span>
+              <span style={{ color: roomState.roomId ? '#ffb300' : '#8c96a5', fontWeight: 'bold' }}>
+                {roomState.roomId || 'BELUM TERHUBUNG'}
               </span>
             </div>
 
@@ -348,6 +417,44 @@ export const Lobby: React.FC<LobbyProps> = ({
             >
               {isReady ? 'BATALKAN SIAP' : 'SAYA SIAP!'}
             </button>
+
+            {/* Collapsible Advanced Custom IP */}
+            <div style={{ textAlign: 'center', marginTop: '4px' }}>
+              <button
+                onClick={() => setShowAdvancedIp(!showAdvancedIp)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#556680',
+                  fontSize: '9px',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  textDecoration: 'underline'
+                }}
+              >
+                {showAdvancedIp ? 'Sembunyikan Pengaturan IP Manual' : 'Opsi Lanjutan: IP Server Manual'}
+              </button>
+
+              {showAdvancedIp && (
+                <div style={{ marginTop: '8px', display: 'flex', gap: '6px' }}>
+                  <input
+                    type="text"
+                    className="pixel-input"
+                    value={guestHostIp}
+                    style={{ flex: 1, fontSize: '9px' }}
+                    placeholder="http://192.168.x.x:3000"
+                    onChange={(e) => setGuestHostIp(e.target.value)}
+                  />
+                  <button
+                    className="pixel-btn"
+                    onClick={handleConnectGuest}
+                    style={{ fontSize: '9px', padding: '6px 10px' }}
+                  >
+                    KONEK IP
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
