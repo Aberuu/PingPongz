@@ -95,6 +95,11 @@ io.on('connection', (socket) => {
     room?.handleSetPracticeZone(data.zone, hostUrl);
   });
 
+  socket.on('c2s_set_dynamic_power', (data: { enabled: boolean }) => {
+    const room = roomManager.getRoomForSocket(socket);
+    room?.handleSetDynamicRallyPower(data.enabled, hostUrl);
+  });
+
   // High-frequency volatile player input (60Hz)
   socket.on('c2s_input', (input: ClientInputMsg) => {
     const room = roomManager.getRoomForSocket(socket);

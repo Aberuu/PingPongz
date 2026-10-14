@@ -4,7 +4,8 @@ import {
   BALL_PHYSICS,
   PADDLE_PHYSICS,
   ASSIST_PRESETS,
-  REACH_SYSTEM
+  REACH_SYSTEM,
+  calculateRallyMultiplier
 } from '../shared/constants.js';
 import type { Vec3, BallState, PaddleState, PlayerSlot, GameEventData } from '../shared/types.js';
 
@@ -77,7 +78,9 @@ export function stepBallPhysics(
   p2Paddle: PaddleState,
   dt: number,
   canP1Hit: boolean,
-  canP2Hit: boolean
+  canP2Hit: boolean,
+  currentRallyShots = 0,
+  rallyPowerEnabled = true
 ): PhysicsStepResult {
   const events: GameEventData[] = [];
   let ballHitFloor = false;
@@ -142,8 +145,10 @@ export function stepBallPhysics(
         const isSmash = !!paddle.isSmashing;
         const isSlice = !!paddle.isSlice;
         const isSweetSpot = distToCenter <= 0.038;
+        const rallyMultiplier = calculateRallyMultiplier(currentRallyShots, rallyPowerEnabled);
         let multiplier = isSmash ? BALL_PHYSICS.smashMultiplier : 1.0;
         if (isSweetSpot) multiplier *= 1.10;
+        multiplier *= rallyMultiplier;
 
         // Reflect velocity against paddle normal
         const dotVN = vecDot(ball.velocity, normal);
@@ -248,8 +253,8 @@ export function stepBallPhysics(
           reflV.x *= (1 - REACH_SYSTEM.edgeDragReduction);
         }
 
-        // Clamp speed scaled by assist preset
-        const maxSpeed = BALL_PHYSICS.maxSpeed * assist.maxSpeedScale;
+        // Clamp speed scaled by assist preset and rally multiplier
+        const maxSpeed = BALL_PHYSICS.maxSpeed * assist.maxSpeedScale * rallyMultiplier;
         const speed = vecLength(reflV);
         if (speed > maxSpeed) {
           reflV = vecScale(vecNormalize(reflV), maxSpeed);
@@ -270,7 +275,9 @@ export function stepBallPhysics(
             isSmash,
             isSlice,
             isSweetSpot,
-            pos: hitPoint
+            pos: hitPoint,
+            rallyCount: currentRallyShots + 1,
+            rallyMultiplier
           }
         });
         break; // Only one paddle hit per tick

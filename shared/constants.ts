@@ -152,3 +152,45 @@ export const MATCH_RULES = {
   ballStuckTimeoutSec: 10.0,
   countdownDurationSec: 3
 } as const;
+
+export const RALLY_POWER_SYSTEM = {
+  enabledDefault: true,
+  startHitCount: 3,        // Escalation begins on the 3rd rally shot
+  boostPerHit: 0.02,       // +2% velocity & power boost per hit beyond startHitCount
+  maxMultiplier: 1.25      // Hard cap at 1.25x (+25% maximum) so it stays controllable and not overpowered
+} as const;
+
+export function calculateRallyMultiplier(rallyShots: number, enabled = true): number {
+  if (!enabled || rallyShots < RALLY_POWER_SYSTEM.startHitCount) {
+    return 1.0;
+  }
+  const extraHits = rallyShots - RALLY_POWER_SYSTEM.startHitCount;
+  return Math.min(
+    RALLY_POWER_SYSTEM.maxMultiplier,
+    1.0 + extraHits * RALLY_POWER_SYSTEM.boostPerHit
+  );
+}
+
+export const PROTOCOL_VERSION = 4;
+
+export const SPECTATOR_CONFIG = {
+  maxSpectators: 12,
+  snapshotRate: 30, // 30Hz for spectators (every 4 ticks on 120Hz physics)
+  chatCooldownMs: 1500
+} as const;
+
+export const RECONNECT_CONFIG = {
+  gracePeriodSec: 30,
+  backoffDelaysMs: [500, 1000, 2000, 3000]
+} as const;
+
+export const REPLAY_CONFIG = {
+  bufferDurationSec: 6,
+  bufferCapacity: 360, // 6 seconds * 60 snapshots/sec
+  defaultDurationSec: 4,
+  slowMoStartSec: 2.5,
+  slowMoSpeed: 0.5,
+  fpsDisableThreshold: 45
+} as const;
+
+

@@ -158,6 +158,10 @@ class SocketClient {
     this.socket?.emit('c2s_set_practice_zone', { zone });
   }
 
+  public setDynamicRallyPower(enabled: boolean) {
+    this.socket?.emit('c2s_set_dynamic_power', { enabled });
+  }
+
   public sendInput(input: ClientInputMsg) {
     // Send volatile input
     this.socket?.emit('c2s_input', input);

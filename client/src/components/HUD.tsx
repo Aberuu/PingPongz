@@ -22,6 +22,8 @@ interface HUDProps {
   gameMode?: GameMode;
   practiceZone?: PracticeZone;
   onSelectPracticeZone?: (zone: PracticeZone) => void;
+  currentRallyShots?: number;
+  dynamicRallyPower?: boolean;
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -43,7 +45,9 @@ export const HUD: React.FC<HUDProps> = ({
   onQuitToLobby,
   gameMode,
   practiceZone,
-  onSelectPracticeZone
+  onSelectPracticeZone,
+  currentRallyShots,
+  dynamicRallyPower = true
 }) => {
   // F3 toggle for Ping/FPS stats (hidden by default per user guidelines)
   const [showStats, setShowStats] = useState(false);
@@ -292,6 +296,30 @@ export const HUD: React.FC<HUDProps> = ({
             PENGATURAN
           </button>
         </div>
+
+        {/* Dynamic Rally Heat Badge */}
+        {phase === 'RALLY' && (currentRallyShots ?? 0) >= 3 && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '64px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              padding: '4px 10px',
+              backgroundColor: 'rgba(15, 23, 42, 0.92)',
+              border: `2px solid ${(currentRallyShots ?? 0) >= 10 ? '#ef4444' : '#f59e0b'}`,
+              boxShadow: `0 0 14px ${(currentRallyShots ?? 0) >= 10 ? 'rgba(239, 68, 68, 0.6)' : 'rgba(245, 158, 11, 0.5)'}`,
+              fontSize: '9px',
+              color: (currentRallyShots ?? 0) >= 10 ? '#ff7b72' : '#fbbf24',
+              fontWeight: 'bold',
+              letterSpacing: '1px',
+              pointerEvents: 'none',
+              zIndex: 10
+            }}
+          >
+            RELI x{currentRallyShots} {dynamicRallyPower ? `(+${Math.round((Math.min(1.25, 1.0 + ((currentRallyShots ?? 0) - 3) * 0.02) - 1) * 100)}% POWER)` : ''}
+          </div>
+        )}
       </div>
 
       {/* Middle Alerts (Countdown & Disconnect only; NO big center box covering the table!) */}

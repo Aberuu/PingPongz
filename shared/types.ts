@@ -7,6 +7,8 @@ export interface Vec3 {
 }
 
 export type PlayerSlot = 'p1' | 'p2';
+export type ClientRole = 'player' | 'spectator';
+export type SpectatorCameraMode = 'broadcast' | 'courtside' | 'umpire';
 
 export type AssistPreset = 'casual' | 'normal' | 'pro';
 export type CameraMode = 'static' | 'subtle' | 'dynamic';
@@ -75,6 +77,7 @@ export interface MatchStats {
 
 export interface SnapshotData {
   seq: number;
+  tick?: number;
   serverTime: number;
   phase: GamePhase;
   score: ScoreState;
@@ -89,6 +92,7 @@ export interface SnapshotData {
   matchStats?: MatchStats;
   p1Rematch?: boolean;
   p2Rematch?: boolean;
+  currentRallyShots?: number;
 }
 
 export type GameEventType =
@@ -96,10 +100,17 @@ export type GameEventType =
   | 'PADDLE_HIT'
   | 'NET_HIT'
   | 'POINT'
+  | 'POINT_AWARDED'
   | 'LET'
   | 'SERVE_START'
   | 'MATCH_OVER'
-  | 'RULE_ANNOUNCEMENT';
+  | 'RULE_ANNOUNCEMENT'
+  | 'SPECTATOR_JOINED'
+  | 'SPECTATOR_LEFT'
+  | 'ROLE_CHANGED'
+  | 'PLAYER_DISCONNECTED'
+  | 'PLAYER_RECONNECTED'
+  | 'PLAYER_EXPIRED';
 
 export type RuleAnnouncementType =
   | 'DEUCE'
@@ -128,6 +139,15 @@ export interface GameEventData {
     reason?: string;
     score?: ScoreState;
     announcement?: RuleAnnouncement;
+    rallyCount?: number;
+    rallyMultiplier?: number;
+    tick?: number;
+    spectatorCount?: number;
+    spectatorName?: string;
+    newRole?: ClientRole;
+    newSlot?: PlayerSlot;
+    disconnectedSlot?: PlayerSlot;
+    reconnectedSlot?: PlayerSlot;
   };
 }
 
@@ -148,6 +168,8 @@ export interface ClientInputMsg {
 
 export interface RoomStateMsg {
   roomId?: string;
+  role?: ClientRole;
+  playerToken?: string;
   p1Connected: boolean;
   p2Connected: boolean;
   p1Ready: boolean;
@@ -160,18 +182,35 @@ export interface RoomStateMsg {
   practiceZone?: PracticeZone;
   p1Rematch?: boolean;
   p2Rematch?: boolean;
+  dynamicRallyPower?: boolean;
+  spectatorCount?: number;
+  spectatorNames?: string[];
+  maxSpectators?: number;
+  disconnectedPlayerSlot?: PlayerSlot | null;
+  disconnectCountdown?: number;
 }
 
 export interface ChatMessage {
   id: string;
-  senderSlot: PlayerSlot | 'system' | 'bot';
+  senderSlot: PlayerSlot | 'system' | 'bot' | 'spectator';
   senderName: string;
   text: string;
   timestamp: number;
   isQuickChat?: boolean;
+  isSpectator?: boolean;
 }
 
 export interface TypingStatusMsg {
-  senderSlot: PlayerSlot;
+  senderSlot: PlayerSlot | 'spectator';
   isTyping: boolean;
 }
+
+export interface JoinRoomRequest {
+  playerName: string;
+  slot?: PlayerSlot;
+  roomId?: string;
+  role?: ClientRole;
+  playerToken?: string;
+  protocolVersion?: number;
+}
+

@@ -201,6 +201,35 @@ export const Lobby: React.FC<LobbyProps> = ({
               </div>
             )}
 
+            {/* Dynamic Rally Power Option */}
+            <div
+              style={{
+                backgroundColor: '#10131a',
+                border: '1px solid #2e3644',
+                padding: '10px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px'
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <span style={{ fontSize: '10px', color: '#f0f4f8', fontWeight: 'bold' }}>
+                  POWER RELI DINAMIS (RALLY HEAT)
+                </span>
+                <span style={{ fontSize: '8px', color: '#8c96a5' }}>
+                  Kecepatan & tenaga bertambah halus setiap pukulan reli (maks +25%)
+                </span>
+              </div>
+              <button
+                className={`pixel-btn ${(roomState.dynamicRallyPower ?? true) ? 'btn-primary' : ''}`}
+                onClick={() => network.setDynamicRallyPower(!(roomState.dynamicRallyPower ?? true))}
+                style={{ fontSize: '9px', padding: '6px 10px', minWidth: '80px' }}
+              >
+                {(roomState.dynamicRallyPower ?? true) ? 'AKTIF' : 'NONAKTIF'}
+              </button>
+            </div>
+
             {/* Share Room Code & Link */}
             {(roomState.gameMode ?? 'match') === 'match' && (
               <div

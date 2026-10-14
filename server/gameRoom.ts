@@ -133,6 +133,7 @@ export class GameRoom {
   private botSwingTimer = 0;
   private botServeTimer = 0;
   private currentRallyShots = 0;
+  public dynamicRallyPower = true;
   public roomId: string;
 
   constructor(io: Server, roomId = 'MAIN') {
@@ -156,7 +157,8 @@ export class GameRoom {
       botDifficulty: this.botDifficulty,
       practiceZone: this.practiceZone,
       p1Rematch: !!this.p1?.rematch,
-      p2Rematch: !!this.p2?.rematch
+      p2Rematch: !!this.p2?.rematch,
+      dynamicRallyPower: this.dynamicRallyPower
     };
   }
 
@@ -210,6 +212,11 @@ export class GameRoom {
 
   public handleSetPracticeZone(zone: PracticeZone, hostAddress = '') {
     this.practiceZone = zone;
+    this.broadcastRoomState(hostAddress);
+  }
+
+  public handleSetDynamicRallyPower(enabled: boolean, hostAddress = '') {
+    this.dynamicRallyPower = Boolean(enabled);
     this.broadcastRoomState(hostAddress);
   }
 
@@ -907,7 +914,9 @@ export class GameRoom {
         this.p2Paddle,
         dt,
         canP1Hit,
-        canP2Hit
+        canP2Hit,
+        this.currentRallyShots,
+        this.dynamicRallyPower
       );
 
       // Process physics events
@@ -1063,6 +1072,7 @@ export class GameRoom {
       winner: this.winner,
       p1Rematch: !!this.p1?.rematch,
       p2Rematch: !!this.p2?.rematch,
+      currentRallyShots: this.currentRallyShots,
       matchStats: {
         longestRally: this.matchStats.longestRally,
         currentRally: this.currentRallyShots,

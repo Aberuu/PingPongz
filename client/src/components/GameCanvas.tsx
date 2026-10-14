@@ -26,6 +26,7 @@ interface GameCanvasProps {
   gameMode?: GameMode;
   screenJuice?: ScreenJuice;
   handedness?: Handedness;
+  currentRallyShots?: number;
   onCanvasClick?: () => void;
 }
 
@@ -157,6 +158,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   gameMode = 'match',
   screenJuice = 'subtle',
   handedness = 'right',
+  currentRallyShots = 0,
   onCanvasClick
 }) => {
   const [shakeTs, setShakeTs] = useState(0);
@@ -258,6 +260,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             gameMode={gameMode}
             handedness={handedness}
             screenJuice={screenJuice}
+            currentRallyShots={currentRallyShots}
             onSmashShake={handleSmashShake}
           />
         </Canvas>

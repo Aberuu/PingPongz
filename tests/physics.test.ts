@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { stepBallPhysics, vecLength } from '../server/physics.js';
-import { TABLE_DIMENSIONS, BALL_PHYSICS, PADDLE_PHYSICS } from '../shared/constants.js';
+import { TABLE_DIMENSIONS, BALL_PHYSICS, PADDLE_PHYSICS, calculateRallyMultiplier, RALLY_POWER_SYSTEM } from '../shared/constants.js';
 import type { BallState, PaddleState } from '../shared/types.js';
 
 describe('VoxelPong Server Physics Engine', () => {
@@ -100,4 +100,65 @@ describe('VoxelPong Server Physics Engine', () => {
     const result = stepBallPhysics(ball, paddle, paddle, dt, false, false);
     expect(result.ballHitFloor).toBe(true);
   });
+
+  it('correctly calculates dynamic rally power scaling and enforces maximum cap', () => {
+    // Disabled should always return 1.0
+    expect(calculateRallyMultiplier(0, false)).toBe(1.0);
+    expect(calculateRallyMultiplier(10, false)).toBe(1.0);
+
+    // Below threshold hits (startHitCount = 3) should return 1.0
+    expect(calculateRallyMultiplier(0, true)).toBe(1.0);
+    expect(calculateRallyMultiplier(1, true)).toBe(1.0);
+    expect(calculateRallyMultiplier(2, true)).toBe(1.0);
+    expect(calculateRallyMultiplier(3, true)).toBe(1.0);
+
+    // Scaled hits: +2% per hit past 3
+    expect(calculateRallyMultiplier(4, true)).toBeCloseTo(1.02, 3);
+    expect(calculateRallyMultiplier(5, true)).toBeCloseTo(1.04, 3);
+    expect(calculateRallyMultiplier(8, true)).toBeCloseTo(1.10, 3);
+    expect(calculateRallyMultiplier(15, true)).toBeCloseTo(1.24, 3);
+    expect(calculateRallyMultiplier(16, true)).toBeCloseTo(1.25, 3);
+
+    // Cap at 1.25 (RALLY_POWER_SYSTEM.maxMultiplier)
+    expect(calculateRallyMultiplier(20, true)).toBe(1.25);
+    expect(calculateRallyMultiplier(50, true)).toBe(1.25);
+  });
+
+  it('applies rally power multiplier to paddle rebound physics and limits to capped maxSpeed', () => {
+    const ball: BallState = {
+      pos: { x: 0, y: 0.95, z: 1.55 },
+      velocity: { x: 0, y: 0.5, z: 8.0 }
+    };
+    const p1Paddle: PaddleState = {
+      pos: { x: 0, y: 0.95, z: 1.60 },
+      velocity: { x: 0, y: 0.5, z: -3.0 },
+      pitch: 0,
+      yaw: 0,
+      roll: 0,
+      isSmashing: true,
+      assistPreset: 'normal'
+    };
+    const p2Paddle: PaddleState = {
+      pos: { x: 0, y: 0.95, z: -1.60 },
+      velocity: { x: 0, y: 0, z: 0 },
+      pitch: 0,
+      yaw: 0,
+      roll: 0,
+      isSmashing: false
+    };
+
+    const dt = 1 / 120;
+    // Step with 16 rally shots (max multiplier 1.25)
+    const result = stepBallPhysics(ball, p1Paddle, p2Paddle, dt, true, false, 16, true);
+
+    const hitEvent = result.events.find((e) => e.type === 'PADDLE_HIT');
+    expect(hitEvent).toBeDefined();
+    expect(hitEvent?.payload?.rallyCount).toBe(17);
+    expect(hitEvent?.payload?.rallyMultiplier).toBeCloseTo(1.25, 2);
+
+    // Max allowed speed for normal assist (0.85 scale) scaled by 1.25 multiplier
+    const expectedMaxSpeed = BALL_PHYSICS.maxSpeed * 0.85 * 1.25;
+    expect(vecLength(ball.velocity)).toBeLessThanOrEqual(expectedMaxSpeed + 0.05);
+  });
 });
+

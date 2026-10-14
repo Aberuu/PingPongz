@@ -309,6 +309,7 @@ export const App: React.FC = () => {
         gameMode={roomState.gameMode}
         screenJuice={settings.screenJuice}
         handedness={settings.handedness}
+        currentRallyShots={snapshot.currentRallyShots}
         onCanvasClick={handleCanvasClick}
       />
 
@@ -337,6 +338,8 @@ export const App: React.FC = () => {
           onLockClick={handleCanvasClick}
           onSettingsClick={() => setIsSettingsOpen(true)}
           onQuitToLobby={() => network.sendQuitToLobby()}
+          currentRallyShots={snapshot.currentRallyShots}
+          dynamicRallyPower={roomState.dynamicRallyPower}
         />
       )}
 

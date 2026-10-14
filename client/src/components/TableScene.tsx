@@ -18,6 +18,7 @@ interface TableSceneProps {
   gameMode?: GameMode;
   handedness?: Handedness;
   screenJuice?: ScreenJuice;
+  currentRallyShots?: number;
   onSmashShake?: () => void;
 }
 
@@ -874,6 +875,583 @@ const VoxelSpectatorCrowd: React.FC<{
   );
 };
 
+// 1. Tournament Court Multi-Layer Floor with Taraflex Mat & Wooden Footwork Decks
+const TournamentCourtFloor: React.FC = () => {
+  return (
+    <group>
+      {/* Main Outer Stadium Floor (Dark Slate Arena Ground) */}
+      <mesh position={[0, -0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[20, 24]} />
+        <meshLambertMaterial color="#111622" flatShading />
+      </mesh>
+
+      {/* Outer Floor Perimeter Tile Seam Accents */}
+      {[-8.5, -5.5, -2.5, 2.5, 5.5, 8.5].map((gx, i) => (
+        <mesh key={`grid-seam-x-${i}`} position={[gx, -0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[0.04, 24]} />
+          <meshBasicMaterial color="#1a2232" />
+        </mesh>
+      ))}
+
+      {/* Inner Competition Taraflex Sports Mat (7.4m x 9.6m) */}
+      <mesh position={[0, -0.008, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[7.4, 9.6]} />
+        <meshLambertMaterial color="#1a2536" flatShading />
+      </mesh>
+
+      {/* Mat Perimeter Border Lines */}
+      {/* Left (FTI Blue Border) */}
+      <mesh position={[-3.68, -0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.06, 9.6]} />
+        <meshBasicMaterial color="#2563eb" />
+      </mesh>
+      {/* Right (UKSW Red Border) */}
+      <mesh position={[3.68, -0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.06, 9.6]} />
+        <meshBasicMaterial color="#dc2626" />
+      </mesh>
+      {/* Rear & Front (Amber Endline Court Markers) */}
+      <mesh position={[0, -0.005, -4.78]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[7.42, 0.06]} />
+        <meshBasicMaterial color="#f59e0b" />
+      </mesh>
+      <mesh position={[0, -0.005, 4.78]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[7.42, 0.06]} />
+        <meshBasicMaterial color="#f59e0b" />
+      </mesh>
+
+      {/* Wooden Parquet Footwork Runner Mats Behind Baselines */}
+      {/* Player 1 Footwork Deck (+Z) */}
+      <group position={[0, -0.003, 2.3]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[3.2, 1.6]} />
+          <meshLambertMaterial color="#382417" flatShading />
+        </mesh>
+        {[-1.2, -0.6, 0, 0.6, 1.2].map((px, i) => (
+          <mesh key={`p1-slat-${i}`} position={[px, 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.02, 1.58]} />
+            <meshBasicMaterial color="#4a3222" />
+          </mesh>
+        ))}
+        <mesh position={[0, 0.002, 0]}>
+          <boxGeometry args={[3.24, 0.008, 1.64]} />
+          <meshLambertMaterial color="#2a1a10" flatShading />
+        </mesh>
+      </group>
+
+      {/* Player 2 Footwork Deck (-Z) */}
+      <group position={[0, -0.003, -2.3]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[3.2, 1.6]} />
+          <meshLambertMaterial color="#382417" flatShading />
+        </mesh>
+        {[-1.2, -0.6, 0, 0.6, 1.2].map((px, i) => (
+          <mesh key={`p2-slat-${i}`} position={[px, 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.02, 1.58]} />
+            <meshBasicMaterial color="#4a3222" />
+          </mesh>
+        ))}
+        <mesh position={[0, 0.002, 0]}>
+          <boxGeometry args={[3.24, 0.008, 1.64]} />
+          <meshLambertMaterial color="#2a1a10" flatShading />
+        </mesh>
+      </group>
+    </group>
+  );
+};
+
+// 2. ITTF Tournament Surround Barriers with Sponsor Badges & Foam Corner Posts
+const TournamentSurroundBarriers: React.FC = () => {
+  return (
+    <group>
+      {/* Rear Barrier (Behind P2, Z = -3.8) */}
+      <group position={[0, 0.38, -3.8]}>
+        <mesh>
+          <boxGeometry args={[6.8, 0.76, 0.12]} />
+          <meshLambertMaterial color="#0c121c" flatShading />
+        </mesh>
+        <mesh position={[0, 0.385, 0]}>
+          <boxGeometry args={[6.84, 0.04, 0.14]} />
+          <meshBasicMaterial color="#f59e0b" />
+        </mesh>
+        <mesh position={[-1.8, 0, 0.065]}>
+          <boxGeometry args={[1.6, 0.28, 0.02]} />
+          <meshLambertMaterial color="#1e293b" flatShading />
+        </mesh>
+        <mesh position={[1.8, 0, 0.065]}>
+          <boxGeometry args={[1.6, 0.28, 0.02]} />
+          <meshLambertMaterial color="#1e293b" flatShading />
+        </mesh>
+      </group>
+
+      {/* Front Barrier (Behind P1, Z = 3.8) */}
+      <group position={[0, 0.38, 3.8]}>
+        <mesh>
+          <boxGeometry args={[6.8, 0.76, 0.12]} />
+          <meshLambertMaterial color="#0c121c" flatShading />
+        </mesh>
+        <mesh position={[0, 0.385, 0]}>
+          <boxGeometry args={[6.84, 0.04, 0.14]} />
+          <meshBasicMaterial color="#f59e0b" />
+        </mesh>
+        <mesh position={[-1.8, 0, -0.065]}>
+          <boxGeometry args={[1.6, 0.28, 0.02]} />
+          <meshLambertMaterial color="#1e293b" flatShading />
+        </mesh>
+        <mesh position={[1.8, 0, -0.065]}>
+          <boxGeometry args={[1.6, 0.28, 0.02]} />
+          <meshLambertMaterial color="#1e293b" flatShading />
+        </mesh>
+      </group>
+
+      {/* Left Barrier (FTI Blue Side, X = -3.4) */}
+      <group position={[-3.4, 0.38, 0]}>
+        <mesh>
+          <boxGeometry args={[0.12, 0.76, 7.6]} />
+          <meshLambertMaterial color="#08101e" flatShading />
+        </mesh>
+        <mesh position={[0, 0.385, 0]}>
+          <boxGeometry args={[0.14, 0.04, 7.64]} />
+          <meshBasicMaterial color="#2563eb" />
+        </mesh>
+        {[-2.0, 2.0].map((bz, i) => (
+          <mesh key={`badge-left-${i}`} position={[0.065, 0, bz]}>
+            <boxGeometry args={[0.02, 0.28, 1.8]} />
+            <meshLambertMaterial color="#1d4ed8" flatShading />
+          </mesh>
+        ))}
+      </group>
+
+      {/* Right Barrier (UKSW Red Side, X = 3.4) */}
+      <group position={[3.4, 0.38, 0]}>
+        <mesh>
+          <boxGeometry args={[0.12, 0.76, 7.6]} />
+          <meshLambertMaterial color="#180709" flatShading />
+        </mesh>
+        <mesh position={[0, 0.385, 0]}>
+          <boxGeometry args={[0.14, 0.04, 7.64]} />
+          <meshBasicMaterial color="#dc2626" />
+        </mesh>
+        {[-2.0, 2.0].map((bz, i) => (
+          <mesh key={`badge-right-${i}`} position={[-0.065, 0, bz]}>
+            <boxGeometry args={[0.02, 0.28, 1.8]} />
+            <meshLambertMaterial color="#b91c1c" flatShading />
+          </mesh>
+        ))}
+      </group>
+
+      {/* Corner Posts with Protective Foam Pads */}
+      {[
+        [-3.4, 0.42, -3.8],
+        [3.4, 0.42, -3.8],
+        [-3.4, 0.42, 3.8],
+        [3.4, 0.42, 3.8]
+      ].map(([cx, cy, cz], i) => (
+        <group key={`corner-post-${i}`} position={[cx, cy, cz]}>
+          <mesh>
+            <boxGeometry args={[0.18, 0.86, 0.18]} />
+            <meshLambertMaterial color="#1e293b" flatShading />
+          </mesh>
+          <mesh position={[0, 0.44, 0]}>
+            <boxGeometry args={[0.20, 0.04, 0.20]} />
+            <meshBasicMaterial color="#f59e0b" />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+};
+
+// 3. Official ITTF Voxel Umpire Tower with Tracking Referee Head
+const VoxelUmpireTower: React.FC<{
+  ballZ: number;
+}> = ({ ballZ }) => {
+  const headYaw = clamp(ballZ * 0.22, -0.55, 0.55);
+
+  return (
+    <group position={[-2.2, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+      {/* 4 Ladder Frame Legs */}
+      {[
+        [-0.22, 0.58, -0.22],
+        [0.22, 0.58, -0.22],
+        [-0.22, 0.58, 0.22],
+        [0.22, 0.58, 0.22]
+      ].map(([lx, ly, lz], i) => (
+        <mesh key={`umpire-leg-${i}`} position={[lx, ly, lz]}>
+          <boxGeometry args={[0.04, 1.16, 0.04]} />
+          <meshLambertMaterial color="#334155" flatShading />
+        </mesh>
+      ))}
+      {/* Ladder Rungs */}
+      {[0.25, 0.50, 0.75, 1.0].map((ry, i) => (
+        <mesh key={`rung-${i}`} position={[0, ry, -0.22]}>
+          <boxGeometry args={[0.44, 0.03, 0.03]} />
+          <meshLambertMaterial color="#475569" flatShading />
+        </mesh>
+      ))}
+      {/* Elevated Seat Platform */}
+      <mesh position={[0, 1.16, 0]}>
+        <boxGeometry args={[0.54, 0.05, 0.54]} />
+        <meshLambertMaterial color="#475569" flatShading />
+      </mesh>
+      {/* Chair Backrest */}
+      <mesh position={[0, 1.48, -0.23]}>
+        <boxGeometry args={[0.48, 0.55, 0.04]} />
+        <meshLambertMaterial color="#1e293b" flatShading />
+      </mesh>
+      {/* Score Ledger Desk */}
+      <mesh position={[0, 1.42, 0.24]}>
+        <boxGeometry args={[0.48, 0.04, 0.22]} />
+        <meshLambertMaterial color="#334155" flatShading />
+      </mesh>
+      {/* Score Card on Desk */}
+      <mesh position={[0, 1.45, 0.24]}>
+        <boxGeometry args={[0.26, 0.02, 0.16]} />
+        <meshBasicMaterial color="#ffffff" />
+      </mesh>
+
+      {/* Seated Voxel Referee */}
+      <mesh position={[0, 1.42, -0.04]}>
+        <boxGeometry args={[0.28, 0.36, 0.20]} />
+        <meshLambertMaterial color="#f8fafc" flatShading />
+      </mesh>
+      <mesh position={[0, 1.58, -0.02]}>
+        <boxGeometry args={[0.16, 0.04, 0.18]} />
+        <meshLambertMaterial color="#0f172a" flatShading />
+      </mesh>
+      <mesh position={[0, 1.25, 0.06]}>
+        <boxGeometry args={[0.26, 0.16, 0.26]} />
+        <meshLambertMaterial color="#0f172a" flatShading />
+      </mesh>
+      <group position={[0, 1.70, -0.02]} rotation={[0, headYaw, 0]}>
+        <mesh>
+          <boxGeometry args={[0.18, 0.18, 0.18]} />
+          <meshLambertMaterial color="#e2a77f" flatShading />
+        </mesh>
+        <mesh position={[0, 0.08, -0.01]}>
+          <boxGeometry args={[0.19, 0.08, 0.19]} />
+          <meshLambertMaterial color="#1e293b" flatShading />
+        </mesh>
+        <mesh position={[0, 0.01, 0.095]}>
+          <boxGeometry args={[0.14, 0.04, 0.01]} />
+          <meshBasicMaterial color="#0f172a" />
+        </mesh>
+      </group>
+    </group>
+  );
+};
+
+// 4. Sideline Player Benches with Folded Towels, Drink Bottles & Spare Rackets
+const PlayerBenches: React.FC = () => {
+  return (
+    <group>
+      {/* Left Sideline: FTI Blue Player Bench */}
+      <group position={[-2.8, 0, 1.8]}>
+        <mesh position={[0, 0.28, 0]}>
+          <boxGeometry args={[0.42, 0.04, 1.3]} />
+          <meshLambertMaterial color="#1e3a8a" flatShading />
+        </mesh>
+        {[-0.5, 0.5].map((bz, i) => (
+          <mesh key={`p1-bench-leg-${i}`} position={[0, 0.14, bz]}>
+            <boxGeometry args={[0.36, 0.28, 0.06]} />
+            <meshLambertMaterial color="#1e293b" flatShading />
+          </mesh>
+        ))}
+        <mesh position={[0, 0.33, 0.25]}>
+          <boxGeometry args={[0.24, 0.06, 0.30]} />
+          <meshLambertMaterial color="#3b82f6" flatShading />
+        </mesh>
+        <mesh position={[0, 0.38, -0.2]}>
+          <cylinderGeometry args={[0.04, 0.04, 0.16, 8]} />
+          <meshLambertMaterial color="#38bdf8" flatShading />
+        </mesh>
+        <mesh position={[0.02, 0.31, -0.42]} rotation={[0, 0.2, 0]}>
+          <boxGeometry args={[0.16, 0.02, 0.24]} />
+          <meshLambertMaterial color="#dc2626" flatShading />
+        </mesh>
+      </group>
+
+      {/* Right Sideline: UKSW Red Player Bench */}
+      <group position={[2.8, 0, -1.8]}>
+        <mesh position={[0, 0.28, 0]}>
+          <boxGeometry args={[0.42, 0.04, 1.3]} />
+          <meshLambertMaterial color="#7f1d1d" flatShading />
+        </mesh>
+        {[-0.5, 0.5].map((bz, i) => (
+          <mesh key={`p2-bench-leg-${i}`} position={[0, 0.14, bz]}>
+            <boxGeometry args={[0.36, 0.28, 0.06]} />
+            <meshLambertMaterial color="#1e293b" flatShading />
+          </mesh>
+        ))}
+        <mesh position={[0, 0.33, -0.25]}>
+          <boxGeometry args={[0.24, 0.06, 0.30]} />
+          <meshLambertMaterial color="#ef4444" flatShading />
+        </mesh>
+        <mesh position={[0, 0.38, 0.2]}>
+          <cylinderGeometry args={[0.04, 0.04, 0.16, 8]} />
+          <meshLambertMaterial color="#f87171" flatShading />
+        </mesh>
+        <mesh position={[-0.02, 0.31, 0.42]} rotation={[0, -0.2, 0]}>
+          <boxGeometry args={[0.16, 0.02, 0.24]} />
+          <meshLambertMaterial color="#2563eb" flatShading />
+        </mesh>
+      </group>
+    </group>
+  );
+};
+
+// 5. Overhead Suspended 4-Sided Championship Jumbotron with Rally Heat Ring
+const SuspendedJumbotron: React.FC<{
+  p1Score: number;
+  p2Score: number;
+  rallyHeat: number;
+}> = ({ p1Score, p2Score, rallyHeat }) => {
+  const isHighHeat = rallyHeat >= 10;
+  const isMidHeat = rallyHeat >= 5;
+  const heatColor = isHighHeat ? '#ef4444' : isMidHeat ? '#f59e0b' : '#334155';
+
+  return (
+    <group position={[0, 4.6, 0]}>
+      {/* 4 Steel Hanging Cables attached to roof gantry */}
+      {[
+        [-0.8, 0.65, -0.8],
+        [0.8, 0.65, -0.8],
+        [-0.8, 0.65, 0.8],
+        [0.8, 0.65, 0.8]
+      ].map(([cx, cy, cz], i) => (
+        <mesh key={`cable-${i}`} position={[cx, cy, cz]}>
+          <cylinderGeometry args={[0.012, 0.012, 1.3, 6]} />
+          <meshLambertMaterial color="#1e293b" flatShading />
+        </mesh>
+      ))}
+
+      {/* Main Jumbotron Chassis */}
+      <mesh>
+        <boxGeometry args={[1.7, 1.1, 1.7]} />
+        <meshLambertMaterial color="#0b0f19" flatShading />
+      </mesh>
+
+      {/* Top Beveled Cap */}
+      <mesh position={[0, 0.58, 0]}>
+        <boxGeometry args={[1.76, 0.08, 1.76]} />
+        <meshLambertMaterial color="#1e293b" flatShading />
+      </mesh>
+
+      {/* Bottom Heat Ring Ticker */}
+      <mesh position={[0, -0.58, 0]}>
+        <boxGeometry args={[1.76, 0.08, 1.76]} />
+        <meshBasicMaterial color={heatColor} />
+      </mesh>
+
+      {/* Front Face (+Z, Facing Player 1) */}
+      <group position={[0, 0, 0.86]}>
+        <mesh>
+          <planeGeometry args={[1.5, 0.95]} />
+          <meshBasicMaterial color="#18181b" />
+        </mesh>
+        <group position={[-0.45, 0.05, 0.01]}>
+          <SevenSegmentDigit value={p1Score} />
+        </group>
+        <mesh position={[0, 0.05, 0.01]}>
+          <boxGeometry args={[0.08, 0.03, 0.01]} />
+          <meshBasicMaterial color="#fbbf24" />
+        </mesh>
+        <group position={[0.45, 0.05, 0.01]}>
+          <SevenSegmentDigit value={p2Score} />
+        </group>
+        {isMidHeat && (
+          <mesh position={[0, -0.32, 0.01]}>
+            <boxGeometry args={[1.3, 0.12, 0.01]} />
+            <meshBasicMaterial color={heatColor} />
+          </mesh>
+        )}
+      </group>
+
+      {/* Rear Face (-Z, Facing Player 2) */}
+      <group position={[0, 0, -0.86]} rotation={[0, Math.PI, 0]}>
+        <mesh>
+          <planeGeometry args={[1.5, 0.95]} />
+          <meshBasicMaterial color="#18181b" />
+        </mesh>
+        <group position={[-0.45, 0.05, 0.01]}>
+          <SevenSegmentDigit value={p2Score} />
+        </group>
+        <mesh position={[0, 0.05, 0.01]}>
+          <boxGeometry args={[0.08, 0.03, 0.01]} />
+          <meshBasicMaterial color="#fbbf24" />
+        </mesh>
+        <group position={[0.45, 0.05, 0.01]}>
+          <SevenSegmentDigit value={p1Score} />
+        </group>
+        {isMidHeat && (
+          <mesh position={[0, -0.32, 0.01]}>
+            <boxGeometry args={[1.3, 0.12, 0.01]} />
+            <meshBasicMaterial color={heatColor} />
+          </mesh>
+        )}
+      </group>
+
+      {/* Left Face (-X, Facing FTI side) */}
+      <group position={[-0.86, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
+        <mesh>
+          <planeGeometry args={[1.5, 0.95]} />
+          <meshBasicMaterial color="#0f172a" />
+        </mesh>
+        <mesh position={[0, 0, 0.01]}>
+          <boxGeometry args={[1.3, 0.35, 0.01]} />
+          <meshBasicMaterial color="#1d4ed8" />
+        </mesh>
+      </group>
+
+      {/* Right Face (+X, Facing UKSW side) */}
+      <group position={[0.86, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <mesh>
+          <planeGeometry args={[1.5, 0.95]} />
+          <meshBasicMaterial color="#180709" />
+        </mesh>
+        <mesh position={[0, 0, 0.01]}>
+          <boxGeometry args={[1.3, 0.35, 0.01]} />
+          <meshBasicMaterial color="#b91c1c" />
+        </mesh>
+      </group>
+    </group>
+  );
+};
+
+// 6. Architectural Stadium Walls with Acoustic Slat Panels & Structural I-Columns
+const EnhancedStadiumWalls: React.FC<{
+  ftiBannerTexture: THREE.CanvasTexture;
+  ukswBannerTexture: THREE.CanvasTexture;
+}> = ({ ftiBannerTexture, ukswBannerTexture }) => {
+  return (
+    <group>
+      {/* Back Wall (Z = -7.6) */}
+      <group position={[0, 3.2, -7.6]}>
+        <mesh>
+          <planeGeometry args={[20, 6.8]} />
+          <meshLambertMaterial color="#1a2432" />
+        </mesh>
+        {[-7, -5, -3, -1, 1, 3, 5, 7].map((sx, i) => (
+          <mesh key={`acoustic-back-${i}`} position={[sx, 0, 0.04]}>
+            <boxGeometry args={[0.45, 6.5, 0.06]} />
+            <meshLambertMaterial color="#223145" flatShading />
+          </mesh>
+        ))}
+        {[-8.2, -4.2, 0, 4.2, 8.2].map((cx, i) => (
+          <mesh key={`col-back-${i}`} position={[cx, 0, 0.08]}>
+            <boxGeometry args={[0.22, 6.8, 0.16]} />
+            <meshLambertMaterial color="#334155" flatShading />
+          </mesh>
+        ))}
+        <mesh position={[-6.2, -1.8, 0.09]}>
+          <boxGeometry args={[0.60, 0.24, 0.04]} />
+          <meshBasicMaterial color="#10b981" />
+        </mesh>
+        <mesh position={[0, 2.2, 0.05]}>
+          <boxGeometry args={[20, 0.12, 0.04]} />
+          <meshBasicMaterial color="#f59e0b" />
+        </mesh>
+      </group>
+
+      {/* Front Wall (Z = 7.6) */}
+      <group position={[0, 3.2, 7.6]} rotation={[0, Math.PI, 0]}>
+        <mesh>
+          <planeGeometry args={[20, 6.8]} />
+          <meshLambertMaterial color="#1a2432" />
+        </mesh>
+        {[-7, -5, -3, -1, 1, 3, 5, 7].map((sx, i) => (
+          <mesh key={`acoustic-front-${i}`} position={[sx, 0, 0.04]}>
+            <boxGeometry args={[0.45, 6.5, 0.06]} />
+            <meshLambertMaterial color="#223145" flatShading />
+          </mesh>
+        ))}
+        {[-8.2, -4.2, 0, 4.2, 8.2].map((cx, i) => (
+          <mesh key={`col-front-${i}`} position={[cx, 0, 0.08]}>
+            <boxGeometry args={[0.22, 6.8, 0.16]} />
+            <meshLambertMaterial color="#334155" flatShading />
+          </mesh>
+        ))}
+        <mesh position={[6.2, -1.8, 0.09]}>
+          <boxGeometry args={[0.60, 0.24, 0.04]} />
+          <meshBasicMaterial color="#10b981" />
+        </mesh>
+      </group>
+
+      {/* Left Wall (X = -7.5, FTI Side) */}
+      <group position={[-7.5, 3.2, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <mesh position={[0, 0, -0.05]}>
+          <planeGeometry args={[18, 6.8]} />
+          <meshLambertMaterial color="#162334" />
+        </mesh>
+        <mesh position={[0, 0.25, 0.04]}>
+          <boxGeometry args={[7.2, 3.6, 0.08]} />
+          <meshBasicMaterial map={ftiBannerTexture} />
+        </mesh>
+        <mesh position={[0, 0.25, -0.01]}>
+          <boxGeometry args={[7.36, 3.76, 0.04]} />
+          <meshLambertMaterial color="#0f172a" flatShading />
+        </mesh>
+        <mesh position={[0, 2.12, 0.09]}>
+          <boxGeometry args={[7.3, 0.06, 0.06]} />
+          <meshBasicMaterial color="#38bdf8" />
+        </mesh>
+        <mesh position={[0, -1.62, 0.09]}>
+          <boxGeometry args={[7.3, 0.06, 0.06]} />
+          <meshBasicMaterial color="#38bdf8" />
+        </mesh>
+        {[-6.0, -3.5, 3.5, 6.0].map((px, i) => (
+          <group key={`col-left-${i}`} position={[px, 0, 0.08]}>
+            <mesh>
+              <boxGeometry args={[0.22, 6.8, 0.14]} />
+              <meshLambertMaterial color="#1e293b" flatShading />
+            </mesh>
+            <mesh position={[0, 1.8, 0.08]}>
+              <boxGeometry args={[0.24, 0.12, 0.04]} />
+              <meshBasicMaterial color="#2563eb" />
+            </mesh>
+          </group>
+        ))}
+      </group>
+
+      {/* Right Wall (X = 7.5, UKSW Side) */}
+      <group position={[7.5, 3.2, 0]} rotation={[0, -Math.PI / 2, 0]}>
+        <mesh position={[0, 0, -0.05]}>
+          <planeGeometry args={[18, 6.8]} />
+          <meshLambertMaterial color="#2d171b" />
+        </mesh>
+        <mesh position={[0, 0.25, 0.04]}>
+          <boxGeometry args={[7.2, 3.6, 0.08]} />
+          <meshBasicMaterial map={ukswBannerTexture} />
+        </mesh>
+        <mesh position={[0, 0.25, -0.01]}>
+          <boxGeometry args={[7.36, 3.76, 0.04]} />
+          <meshLambertMaterial color="#0f172a" flatShading />
+        </mesh>
+        <mesh position={[0, 2.12, 0.09]}>
+          <boxGeometry args={[7.3, 0.06, 0.06]} />
+          <meshBasicMaterial color="#ef4444" />
+        </mesh>
+        <mesh position={[0, -1.62, 0.09]}>
+          <boxGeometry args={[7.3, 0.06, 0.06]} />
+          <meshBasicMaterial color="#ef4444" />
+        </mesh>
+        {[-6.0, -3.5, 3.5, 6.0].map((px, i) => (
+          <group key={`col-right-${i}`} position={[px, 0, 0.08]}>
+            <mesh>
+              <boxGeometry args={[0.22, 6.8, 0.14]} />
+              <meshLambertMaterial color="#1e293b" flatShading />
+            </mesh>
+            <mesh position={[0, 1.8, 0.08]}>
+              <boxGeometry args={[0.24, 0.12, 0.04]} />
+              <meshBasicMaterial color="#dc2626" />
+            </mesh>
+          </group>
+        ))}
+      </group>
+    </group>
+  );
+};
+
 export const TableScene: React.FC<TableSceneProps> = ({
   ball,
   p1Paddle,
@@ -887,6 +1465,7 @@ export const TableScene: React.FC<TableSceneProps> = ({
   gameMode = 'match',
   handedness = 'right',
   screenJuice = 'subtle',
+  currentRallyShots = 0,
   onSmashShake
 }) => {
   const ballMeshRef = useRef<THREE.Mesh>(null);
@@ -1483,72 +2062,35 @@ export const TableScene: React.FC<TableSceneProps> = ({
   });
 
   const tableTopY = TABLE_DIMENSIONS.height - 0.025;
+  const rallyTrailColor = currentRallyShots >= 10 ? '#ef4444' : currentRallyShots >= 5 ? '#f59e0b' : '#ff9e22';
 
   return (
     <group>
       {/* 1. BRIGHT STADIUM CHAMPIONSHIP LIGHTING */}
-      <ambientLight intensity={1.25} color="#f8fafc" />
-      {/* High-intensity direct spotlight focused on table surface */}
+      <ambientLight intensity={1.25 + (currentRallyShots >= 5 ? 0.15 : 0)} color="#f8fafc" />
+      {/* High-intensity direct spotlight focused on table surface with rally heat reaction */}
       <spotLight
         position={[0, 6.2, 0]}
-        intensity={3.4}
+        intensity={3.4 + (currentRallyShots >= 5 ? 0.6 : 0)}
         angle={0.85}
         penumbra={0.35}
-        color="#ffffff"
+        color={currentRallyShots >= 10 ? '#fff1f2' : '#ffffff'}
       />
       <directionalLight position={[0, 8, 3]} intensity={1.3} color="#f8fafc" />
       <directionalLight position={[-5, 7, -2]} intensity={0.9} color="#e0f2fe" />
       <directionalLight position={[5, 7, 2]} intensity={0.9} color="#fee2e2" />
 
-      {/* 2. BRIGHT SPORTS ARENA FLOOR */}
-      <mesh position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[18, 22]} />
-        <meshLambertMaterial color="#223042" flatShading />
-      </mesh>
+      {/* 2. ENHANCED TOURNAMENT MULTI-LAYER COURT FLOOR */}
+      <TournamentCourtFloor />
 
-      {/* 3. COURT BARRIERS SURROUNDING THE ARENA */}
-      <group position={[0, 0.38, -3.4]}>
-        <mesh>
-          <boxGeometry args={[6.2, 0.76, 0.12]} />
-          <meshLambertMaterial color="#0e1626" flatShading />
-        </mesh>
-        <mesh position={[0, 0.385, 0]}>
-          <boxGeometry args={[6.22, 0.04, 0.14]} />
-          <meshBasicMaterial color="#f59e0b" />
-        </mesh>
-      </group>
-      <group position={[0, 0.38, 3.4]}>
-        <mesh>
-          <boxGeometry args={[6.2, 0.76, 0.12]} />
-          <meshLambertMaterial color="#0e1626" flatShading />
-        </mesh>
-        <mesh position={[0, 0.385, 0]}>
-          <boxGeometry args={[6.22, 0.04, 0.14]} />
-          <meshBasicMaterial color="#f59e0b" />
-        </mesh>
-      </group>
-      {/* Left barrier (FTI Blue Side) */}
-      <group position={[-3.1, 0.38, 0]}>
-        <mesh>
-          <boxGeometry args={[0.12, 0.76, 6.8]} />
-          <meshLambertMaterial color="#091424" flatShading />
-        </mesh>
-        <mesh position={[0, 0.385, 0]}>
-          <boxGeometry args={[0.14, 0.04, 6.82]} />
-          <meshBasicMaterial color="#2563eb" />
-        </mesh>
-      </group>
-      {/* Right barrier (UKSW Red Side) */}
-      <group position={[3.1, 0.38, 0]}>
-        <mesh>
-          <boxGeometry args={[0.12, 0.76, 6.8]} />
-          <meshLambertMaterial color="#1a080a" flatShading />
-        </mesh>
-        <mesh position={[0, 0.385, 0]}>
-          <boxGeometry args={[0.14, 0.04, 6.82]} />
-          <meshBasicMaterial color="#dc2626" />
-        </mesh>
-      </group>
+      {/* 3. ITTF TOURNAMENT SURROUND BARRIERS */}
+      <TournamentSurroundBarriers />
+
+      {/* 4. OFFICIAL SIDELINE UMPIRE TOWER WITH TRACKING REFEREE */}
+      <VoxelUmpireTower ballZ={currentBallPos.current.z} />
+
+      {/* 5. PLAYER TEAM BENCHES & SIDELINE EQUIPMENT */}
+      <PlayerBenches />
 
       {/* 4. TOURNAMENT TABLE TENNIS TABLE (BRIGHT GREEN SURFACE #00a859) */}
       <mesh position={[0, tableTopY, 0]}>
@@ -1684,153 +2226,31 @@ export const TableScene: React.FC<TableSceneProps> = ({
         ))}
       </group>
 
-      {/* 8. STADIUM ARENA WALLS WITH OFFICIAL FTI & UKSW DISPLAYS */}
-      {/* Back Wall (Z = -7.5) */}
-      <group position={[0, 3.2, -7.5]}>
-        <mesh>
-          <planeGeometry args={[18, 6.5]} />
-          <meshLambertMaterial color="#243347" />
-        </mesh>
-        <mesh position={[0, 0.8, 0.01]}>
-          <planeGeometry args={[18, 0.22]} />
-          <meshBasicMaterial color="#2563eb" />
-        </mesh>
-        <mesh position={[0, 0.55, 0.01]}>
-          <planeGeometry args={[18, 0.22]} />
-          <meshBasicMaterial color="#dc2626" />
-        </mesh>
-        {[-4.5, -1.8, 1.8, 4.5].map((px, i) => (
-          <mesh key={`pillar-back-${i}`} position={[px, 0, 0.06]}>
-            <boxGeometry args={[0.20, 6.5, 0.14]} />
-            <meshLambertMaterial color="#1e293b" flatShading />
-          </mesh>
-        ))}
-      </group>
+      {/* 7b. OVERHEAD SUSPENDED 4-SIDED JUMBOTRON & RALLY HEAT RING */}
+      <SuspendedJumbotron
+        p1Score={score.p1}
+        p2Score={score.p2}
+        rallyHeat={currentRallyShots}
+      />
 
-      {/* Front Wall (Z = 7.5) */}
-      <group position={[0, 3.2, 7.5]} rotation={[0, Math.PI, 0]}>
-        <mesh>
-          <planeGeometry args={[18, 6.5]} />
-          <meshLambertMaterial color="#243347" />
-        </mesh>
-        <mesh position={[0, 0.8, 0.01]}>
-          <planeGeometry args={[18, 0.22]} />
-          <meshBasicMaterial color="#2563eb" />
-        </mesh>
-        <mesh position={[0, 0.55, 0.01]}>
-          <planeGeometry args={[18, 0.22]} />
-          <meshBasicMaterial color="#dc2626" />
-        </mesh>
-      </group>
+      {/* 8. ARCHITECTURAL STADIUM WALLS WITH ACOUSTIC PANELS & ILLUMINATED EXHIBITS */}
+      <EnhancedStadiumWalls
+        ftiBannerTexture={ftiBannerTexture}
+        ukswBannerTexture={ukswBannerTexture}
+      />
 
-      {/* LEFT WALL: FTI STADIUM DISPLAY (BLUE) */}
-      <group position={[-7.45, 3.2, 0]} rotation={[0, Math.PI / 2, 0]}>
-        <mesh position={[0, 0, -0.05]}>
-          <planeGeometry args={[16, 6.5]} />
-          <meshLambertMaterial color="#1f3044" />
-        </mesh>
-        <mesh position={[0, 2.7, 0.01]}>
-          <planeGeometry args={[16, 0.16]} />
-          <meshBasicMaterial color="#38bdf8" />
-        </mesh>
-        <mesh position={[0, -2.4, 0.01]}>
-          <planeGeometry args={[16, 0.20]} />
-          <meshBasicMaterial color="#1d4ed8" />
-        </mesh>
-
-        {/* Giant Illuminated FTI Banner Sign */}
-        <mesh position={[0, 0.25, 0.04]}>
-          <boxGeometry args={[7.2, 3.6, 0.08]} />
-          <meshBasicMaterial map={ftiBannerTexture} />
-        </mesh>
-        <mesh position={[0, 0.25, -0.01]}>
-          <boxGeometry args={[7.36, 3.76, 0.04]} />
-          <meshLambertMaterial color="#0f172a" flatShading />
-        </mesh>
-        <mesh position={[0, 2.12, 0.09]}>
-          <boxGeometry args={[7.3, 0.06, 0.06]} />
-          <meshBasicMaterial color="#38bdf8" />
-        </mesh>
-        <mesh position={[0, -1.62, 0.09]}>
-          <boxGeometry args={[7.3, 0.06, 0.06]} />
-          <meshBasicMaterial color="#38bdf8" />
-        </mesh>
-
-        {[-5.0, -2.5, 2.5, 5.0].map((px, i) => (
-          <group key={`pillar-left-${i}`} position={[px, 0, 0.08]}>
-            <mesh>
-              <boxGeometry args={[0.22, 6.5, 0.14]} />
-              <meshLambertMaterial color="#1e293b" flatShading />
-            </mesh>
-            <mesh position={[0, 1.8, 0.08]}>
-              <boxGeometry args={[0.24, 0.12, 0.04]} />
-              <meshBasicMaterial color="#2563eb" />
-            </mesh>
-          </group>
-        ))}
-      </group>
-
-      {/* Blue Ambient Glow on Left Wall */}
+      {/* Blue & Red Ambient Wall Glows */}
       <pointLight position={[-6.8, 4.0, 0]} intensity={1.8} distance={9} color="#38bdf8" />
-
-      {/* RIGHT WALL: UKSW STADIUM DISPLAY (RED) */}
-      <group position={[7.45, 3.2, 0]} rotation={[0, -Math.PI / 2, 0]}>
-        <mesh position={[0, 0, -0.05]}>
-          <planeGeometry args={[16, 6.5]} />
-          <meshLambertMaterial color="#3a2228" />
-        </mesh>
-        <mesh position={[0, 2.7, 0.01]}>
-          <planeGeometry args={[16, 0.16]} />
-          <meshBasicMaterial color="#f87171" />
-        </mesh>
-        <mesh position={[0, -2.4, 0.01]}>
-          <planeGeometry args={[16, 0.20]} />
-          <meshBasicMaterial color="#b91c1c" />
-        </mesh>
-
-        {/* Giant Illuminated UKSW Banner Sign */}
-        <mesh position={[0, 0.25, 0.04]}>
-          <boxGeometry args={[7.2, 3.6, 0.08]} />
-          <meshBasicMaterial map={ukswBannerTexture} />
-        </mesh>
-        <mesh position={[0, 0.25, -0.01]}>
-          <boxGeometry args={[7.36, 3.76, 0.04]} />
-          <meshLambertMaterial color="#0f172a" flatShading />
-        </mesh>
-        <mesh position={[0, 2.12, 0.09]}>
-          <boxGeometry args={[7.3, 0.06, 0.06]} />
-          <meshBasicMaterial color="#ef4444" />
-        </mesh>
-        <mesh position={[0, -1.62, 0.09]}>
-          <boxGeometry args={[7.3, 0.06, 0.06]} />
-          <meshBasicMaterial color="#ef4444" />
-        </mesh>
-
-        {[-5.0, -2.5, 2.5, 5.0].map((px, i) => (
-          <group key={`pillar-right-${i}`} position={[px, 0, 0.08]}>
-            <mesh>
-              <boxGeometry args={[0.22, 6.5, 0.14]} />
-              <meshLambertMaterial color="#1e293b" flatShading />
-            </mesh>
-            <mesh position={[0, 1.8, 0.08]}>
-              <boxGeometry args={[0.24, 0.12, 0.04]} />
-              <meshBasicMaterial color="#dc2626" />
-            </mesh>
-          </group>
-        ))}
-      </group>
-
-      {/* Red Ambient Glow on Right Wall */}
       <pointLight position={[6.8, 4.0, 0]} intensity={1.8} distance={9} color="#ef4444" />
 
-      {/* 8. RETRO DIGITAL WALL SCOREBOARDS */}
+      {/* Retro Wall Digital Scoreboards */}
       <RetroScoreboard
-        position={[0, 4.4, -7.45]}
+        position={[0, 4.4, -7.52]}
         p1Score={score.p1}
         p2Score={score.p2}
       />
       <RetroScoreboard
-        position={[0, 4.4, 7.45]}
+        position={[0, 4.4, 7.52]}
         rotationY={Math.PI}
         p1Score={score.p1}
         p2Score={score.p2}
@@ -1915,7 +2335,7 @@ export const TableScene: React.FC<TableSceneProps> = ({
         >
           <boxGeometry args={[0.038 - idx * 0.004, 0.038 - idx * 0.004, 0.038 - idx * 0.004]} />
           <meshBasicMaterial
-            color="#ff9e22"
+            color={rallyTrailColor}
             transparent
             opacity={Math.max(0.08, 0.55 - idx * 0.10)}
           />
