@@ -43,7 +43,9 @@ if (staticPath) {
 const gameRoom = new GameRoom(io);
 const localIps = getLocalIpAddresses();
 const primaryHostIp = localIps[0] || '127.0.0.1';
-const hostUrl = `http://${primaryHostIp}:${PORT}`;
+// On cloud hosts (e.g. Railway) use the public domain instead of the internal container IP
+const publicDomain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
+const hostUrl = publicDomain ? `https://${publicDomain}` : `http://${primaryHostIp}:${PORT}`;
 gameRoom.hostAddress = hostUrl;
 
 io.on('connection', (socket) => {
@@ -129,6 +131,9 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`  Local URL:        http://localhost:${PORT}`);
   for (const ip of localIps) {
     console.log(`  LAN URL (Guest):  http://${ip}:${PORT}`);
+  }
+  if (publicDomain) {
+    console.log(`  Public URL:       ${hostUrl}`);
   }
   console.log('========================================================');
 });
